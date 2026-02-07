@@ -82,7 +82,7 @@ def build_timed_annotations(
                     if i + 1 < len(lrc_lines)
                     else lrc_line["start_time"] + 3,
                     "annotations": deduped,
-                    "annotation": "\\n\\n".join(deduped),
+                    "annotation": "\n\n".join(deduped),
                 }
             )
 
@@ -115,7 +115,7 @@ def build_timed_annotations(
                     "start_time": None,
                     "end_time": None,
                     "annotations": deduped,
-                    "annotation": "\\n\\n".join(deduped),
+                    "annotation": "\n\n".join(deduped),
                 }
             )
 

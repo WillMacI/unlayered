@@ -17,6 +17,23 @@ export interface LyricsResolveResponse {
   timed_lyrics: TimedLyricAnnotation[];
 }
 
+interface RawTimedLyricAnnotation {
+  line: string;
+  start_time?: number | null;
+  end_time?: number | null;
+  startTime?: number | null;
+  endTime?: number | null;
+  annotations?: string[];
+  annotation?: string;
+}
+
+interface RawLyricsResolveResponse {
+  song: SongMetadata;
+  lyrics: string | null;
+  lrc: string | null;
+  timed_lyrics: RawTimedLyricAnnotation[];
+}
+
 export async function searchLyricsSongs(query: string): Promise<LyricsSearchResult[]> {
   const resp = await fetch(`${API_CONFIG.baseUrl}/api/lyrics/search?q=${encodeURIComponent(query)}`);
   if (!resp.ok) {
@@ -30,14 +47,19 @@ export async function resolveLyricsSong(songId: number): Promise<LyricsResolveRe
   if (!resp.ok) {
     throw new Error(`Resolve failed: ${resp.status}`);
   }
-  const raw = await resp.json();
+  const raw: RawLyricsResolveResponse = await resp.json();
   const normalizedTimedLyrics = Array.isArray(raw.timed_lyrics)
-    ? raw.timed_lyrics.map((entry: any): TimedLyricAnnotation => {
-        const { start_time, end_time, ...rest } = entry || {};
+    ? raw.timed_lyrics.map((entry: RawTimedLyricAnnotation): TimedLyricAnnotation => {
+        const startTime = entry.start_time ?? entry.startTime ?? null;
+        const endTime = entry.end_time ?? entry.endTime ?? null;
+        const annotations = entry.annotations ?? (entry.annotation ? entry.annotation.split('\n\n') : []);
+
         return {
-          ...rest,
-          startTime: start_time ?? entry?.startTime ?? null,
-          endTime: end_time ?? entry?.endTime ?? null,
+          ...entry,
+          startTime,
+          endTime,
+          annotations,
+          annotation: entry.annotation ?? annotations.join('\n\n'),
         };
       })
     : [];

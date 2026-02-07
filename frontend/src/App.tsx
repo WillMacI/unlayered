@@ -477,33 +477,16 @@ function App() {
       console.log('[Lyrics] Selected result:', result);
       const payload = await resolveLyricsSong(result.id);
       console.log('[Lyrics] Raw payload:', payload);
-      const normalizedTimedLyrics = payload.timed_lyrics.map((line) => {
-        const startTime = (line as unknown as { start_time?: number | null }).start_time ?? line.startTime ?? null;
-        const endTime = (line as unknown as { end_time?: number | null }).end_time ?? line.endTime ?? null;
-        const annotations = line.annotations ?? (line.annotation ? line.annotation.split('\n\n') : []);
-
-        return {
-          ...line,
-          startTime,
-          endTime,
-          annotations,
-          annotation: line.annotation ?? annotations.join('\n\n'),
-        };
-      });
-
-      console.log('[Lyrics] Normalized timed lyrics count:', normalizedTimedLyrics.length);
-      console.log('[Lyrics] Example normalized line:', normalizedTimedLyrics[0]);
       setSongMeta(payload.song);
-      setTimedLyrics(normalizedTimedLyrics);
+      setTimedLyrics(payload.timed_lyrics);
 
-      const syncedLyricsLines = normalizedTimedLyrics
+      const syncedLyricsLines = payload.timed_lyrics
         .filter((line) => line.startTime !== null && line.endTime !== null)
         .map((line) => ({
           text: line.line,
           startTime: line.startTime as number,
           endTime: line.endTime as number,
         }));
-      console.log('[Lyrics] Synced lyrics count:', syncedLyricsLines.length);
 
       setSyncedLyrics(syncedLyricsLines);
 
