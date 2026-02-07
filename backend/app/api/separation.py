@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+import asyncio
 import uuid
 import logging
 import shutil
@@ -13,7 +14,7 @@ from app.config import settings
 # Note: app.models.schemas exists and contains Pydantic response models
 from app.models.schemas import JobResponse, SeparationResult, SystemCapabilities
 from app.services.job_store import get_job_store, Job, JobStatus
-from app.services.demucs_service import DemucsService
+from app.services.demucs_service import DemucsService, get_executor
 from app.services.system_detector import get_system_capabilities, SystemDetector
 
 logger = logging.getLogger(__name__)
@@ -123,6 +124,12 @@ async def upload_audio(
         # Invalid audio file - clean up and reject
         logger.warning(f"Invalid audio file for job {job_id}: {e}")
         input_path.unlink(missing_ok=True)
+        try:
+            shutil.rmtree(job_upload_dir, ignore_errors=True)
+        except Exception as cleanup_error:
+            logger.warning(
+                f"Failed to clean up upload dir for invalid job {job_id}: {cleanup_error}"
+            )
         raise HTTPException(
             status_code=400,
             detail=f"Invalid audio file. Could not read audio data: {str(e)}"
@@ -232,14 +239,18 @@ async def process_separation_job(
             logger.error(f"Job {job_id} not found")
             return
 
-        # Initialize Demucs service
+        # Initialize Demucs service off the event loop (model load can be expensive)
         logger.info(f"Initializing Demucs for job {job_id}")
-        demucs_service = DemucsService(
-            model=model,
-            device=device,
-            segment=segment,
-            shifts=shifts,
-            overlap=settings.demucs_overlap
+        loop = asyncio.get_running_loop()
+        demucs_service = await loop.run_in_executor(
+            get_executor(),
+            lambda: DemucsService(
+                model=model,
+                device=device,
+                segment=segment,
+                shifts=shifts,
+                overlap=settings.demucs_overlap
+            )
         )
 
         # Update progress

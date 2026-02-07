@@ -197,9 +197,17 @@ class JobStore:
             with open(metadata_file, 'r') as f:
                 data = json.load(f)
 
+            file_job_id = data.get("job_id")
+            if file_job_id is not None and file_job_id != job_id:
+                logger.error(
+                    f"Metadata job_id {file_job_id} does not match requested job_id {job_id} "
+                    f"in {metadata_file}"
+                )
+                return None
+
             job = Job.from_dict(data)
             self.add(job)
-            logger.info(f"Metadata loaded for job {job_id} from {metadata_file}")
+            logger.info(f"Metadata loaded for job {file_job_id or job_id} from {metadata_file}")
             return job
 
         except Exception as e:
