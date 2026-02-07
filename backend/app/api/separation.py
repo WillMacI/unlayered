@@ -285,6 +285,10 @@ async def process_separation_job(
 
         # Save metadata
         job_store.save_metadata(job_id)
+        try:
+            shutil.rmtree(settings.upload_dir / job_id, ignore_errors=True)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to clean up upload dir for job {job_id}: {cleanup_error}")
 
         logger.info(f"Job {job_id} completed successfully in {processing_time:.2f}s")
 
@@ -297,6 +301,10 @@ async def process_separation_job(
             completed_at=datetime.now()
         )
         job_store.save_metadata(job_id)
+        try:
+            shutil.rmtree(settings.upload_dir / job_id, ignore_errors=True)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to clean up upload dir for failed job {job_id}: {cleanup_error}")
 
 
 @router.get("/status/{job_id}", response_model=JobResponse)

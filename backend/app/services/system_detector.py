@@ -71,6 +71,12 @@ class SystemDetector:
             has_gpu, gpu_memory_gb
         )
 
+        # If GPU is too small to be useful, prefer CPU execution
+        if has_gpu and gpu_memory_gb is not None and gpu_memory_gb < 2.0:
+            logger.warning("GPU memory below 2GB; forcing CPU mode for stability.")
+            has_gpu = False
+            device = "cpu"
+
         # Recommend max concurrent jobs based on resources
         max_concurrent_jobs = SystemDetector._recommend_max_jobs(
             has_gpu, gpu_memory_gb
@@ -210,7 +216,13 @@ def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False
     should_refresh = (
         _system_capabilities is None or
         force_refresh or
-        (force_cpu and _system_capabilities is not None and _system_capabilities.device != "cpu")
+        (force_cpu and _system_capabilities is not None and _system_capabilities.device != "cpu") or
+        (
+            not force_cpu
+            and _system_capabilities is not None
+            and _system_capabilities.device == "cpu"
+            and torch.cuda.is_available()
+        )
     )
 
     if should_refresh:

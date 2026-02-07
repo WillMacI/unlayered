@@ -65,6 +65,8 @@ class Job:
 class JobStore:
     """Thread-safe in-memory job storage."""
 
+    _max_history: int = 1000
+
     def __init__(self):
         self._jobs: Dict[str, Job] = {}
         self._lock = threading.Lock()
@@ -73,6 +75,7 @@ class JobStore:
         """Add a new job to the store."""
         with self._lock:
             self._jobs[job.job_id] = job
+            self._prune_history()
             logger.info(f"Job {job.job_id} added to store")
 
     def try_add_with_capacity(self, job: Job, max_concurrent_jobs: int) -> tuple[bool, int]:
@@ -140,6 +143,7 @@ class JobStore:
             if processing_time is not None:
                 job.processing_time = processing_time
 
+            self._prune_history()
             logger.info(f"Job {job_id} updated: status={job.status}, progress={job.progress}")
             return job
 
@@ -261,6 +265,24 @@ class JobStore:
             if status is None:
                 return len(self._jobs)
             return sum(1 for j in self._jobs.values() if j.status == status)
+
+    def _prune_history(self) -> None:
+        """Evict old completed/failed jobs to cap memory usage."""
+        if len(self._jobs) <= self._max_history:
+            return
+
+        removable = [
+            job for job in self._jobs.values()
+            if job.status in {JobStatus.COMPLETED, JobStatus.FAILED}
+        ]
+        if not removable:
+            return
+
+        removable.sort(key=lambda job: job.completed_at or job.created_at or datetime.min)
+        to_remove = len(self._jobs) - self._max_history
+
+        for job in removable[:to_remove]:
+            self._jobs.pop(job.job_id, None)
 
 
 # Global job store instance
