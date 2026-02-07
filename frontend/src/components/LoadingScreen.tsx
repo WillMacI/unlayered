@@ -11,7 +11,7 @@ interface LoadingScreenProps {
   bpm?: number;
   timeSignature?: string;
   artistImage?: string;
-  progress: number; // 0-100
+  albumArtUrl?: string | null;
   status: string;   // "Uploading...", "Analyzing...", etc.
 }
 
@@ -21,7 +21,7 @@ export const LoadingScreen = ({
   bpm,
   timeSignature,
   artistImage,
-  progress,
+  albumArtUrl,
   status,
 }: LoadingScreenProps) => {
   const [fadeIn, setFadeIn] = useState(false);
@@ -32,88 +32,84 @@ export const LoadingScreen = ({
     return () => clearTimeout(timer);
   }, []);
 
-  // Generate gradient placeholder if no artist image
+  // Generate gradient placeholder if no album art
   const placeholderGradient = `linear-gradient(135deg,
     hsl(${artist.length * 37 % 360}, 70%, 50%),
     hsl(${artist.length * 73 % 360}, 70%, 40%))`;
 
   return (
     <div
-      className={`min-h-screen bg-slate-900 flex items-center justify-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
+      className={`min-h-screen flex items-center justify-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
         }`}
+      style={{ backgroundColor: 'var(--bg-primary)' }}
     >
-      <div className="relative max-w-2xl w-full px-8">
-        {/* Artist Image / Placeholder */}
-        <div className="relative mb-8 rounded-2xl overflow-hidden shadow-2xl">
-          {artistImage ? (
+      <div className="relative max-w-4xl w-full px-8 flex flex-col md:flex-row items-center gap-12">
+        {/* Album Art */}
+        <div className="w-64 h-64 md:w-96 md:h-96 rounded-2xl bg-neutral-900 shadow-2xl border border-white/5 flex items-center justify-center relative overflow-hidden">
+          {albumArtUrl ? (
             <img
-              src={artistImage}
-              alt={artist}
-              className="w-full h-96 object-cover"
+              src={albumArtUrl}
+              alt={trackName}
+              className="w-full h-full object-cover"
             />
           ) : (
             <div
-              className="w-full h-96 flex items-center justify-center text-white text-6xl font-bold"
+              className="w-full h-full flex items-center justify-center text-white text-6xl font-bold"
               style={{ background: placeholderGradient }}
             >
-              {artist.charAt(0).toUpperCase()}
+              {trackName.charAt(0).toUpperCase()}
             </div>
           )}
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent" />
+          {artistImage && (
+            <div className="absolute bottom-4 right-4 w-14 h-14 rounded-full border border-white/20 overflow-hidden shadow-lg">
+              <img src={artistImage} alt={artist} className="w-full h-full object-cover" />
+            </div>
+          )}
         </div>
 
-        {/* Track Info */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 animate-pulse">
-            {trackName}
-          </h1>
-          <p className="text-xl text-slate-400">{artist}</p>
-        </div>
-
-        {/* Metadata */}
-        {(bpm || timeSignature) && (
-          <div className="flex items-center justify-center gap-8 mb-8 text-slate-300">
-            {bpm && (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⏱️</span>
-                <span className="text-lg font-medium">{bpm} BPM</span>
-              </div>
-            )}
-            {timeSignature && (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🎹</span>
-                <span className="text-lg font-medium">{timeSignature}</span>
-              </div>
-            )}
+        {/* Info */}
+        <div className="flex-1 text-center md:text-left space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-sm font-medium text-yellow-500/80 tracking-widest uppercase animate-pulse">
+              {status}
+            </h2>
+            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter">
+              {trackName}
+            </h1>
+            <p className="text-lg text-neutral-400 font-light">
+              {artist}
+            </p>
           </div>
-        )}
 
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white/20 transition-all duration-300 ease-out animate-pulse"
-              style={{ width: `${progress}%` }}
-            />
+          {/* Metadata */}
+          {(bpm || timeSignature) && (
+            <div className="flex items-center justify-center md:justify-start gap-6 text-neutral-300">
+              {bpm && (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">⏱️</span>
+                  <span className="text-sm font-medium">{bpm} BPM</span>
+                </div>
+              )}
+              {timeSignature && (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">🎹</span>
+                  <span className="text-sm font-medium">{timeSignature}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Loading Animation */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-neutral-400 text-xs">
+              <span>{status}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#D4AF37]/70 animate-pulse [animation-delay:150ms]" />
+              <span className="w-2 h-2 rounded-full bg-[#D4AF37]/50 animate-pulse [animation-delay:300ms]" />
+            </div>
           </div>
-        </div>
-
-        {/* Status Text */}
-        <div className="text-center">
-          <p className="text-slate-400 text-lg mb-2">{status}</p>
-          <p className="text-slate-500 text-sm">{Math.round(progress)}% complete</p>
-        </div>
-
-        {/* Shimmer animation overlay */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-20"
-            style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-              animation: 'shimmer 2s infinite',
-            }}
-          />
         </div>
       </div>
 
