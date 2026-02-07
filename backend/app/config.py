@@ -1,6 +1,7 @@
 """Application configuration"""
 from pydantic_settings import BaseSettings
 from pathlib import Path
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -11,8 +12,17 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # Audio Processing
-    demucs_model: str = "htdemucs"  # or "htdemucs_ft" for fine-tuned
     max_file_size: int = 100 * 1024 * 1024  # 100MB
+
+    # Demucs Model Settings
+    demucs_model_default: str = "htdemucs_ft"  # Default model if auto-detection disabled
+    demucs_segment: Optional[int] = None  # Auto-determined based on system
+    demucs_shifts_default: int = 1  # Default quality (1-5)
+    demucs_overlap: float = 0.25
+
+    # System Detection
+    auto_detect_capabilities: bool = True
+    force_cpu: bool = False  # Override GPU detection
 
     # Paths
     upload_dir: Path = Path("./uploads")
@@ -20,8 +30,9 @@ class Settings(BaseSettings):
     cache_dir: Path = Path("./cache")
 
     # Performance
-    use_gpu: bool = True
+    use_gpu: bool = True  # Deprecated - use auto_detect_capabilities
     max_workers: int = 2
+    processing_timeout: int = 600  # 10 minutes max
 
     class Config:
         env_file = ".env"
