@@ -6,10 +6,31 @@ interface AIInsightsProps {
 }
 
 export const AIInsights = ({ insight }: AIInsightsProps) => {
-  const handleCopy = () => {
-    if (insight) {
-      const text = `${insight.summary}\n\nGenre: ${insight.genre}\nMood: ${insight.mood}\nTempo: ${insight.tempo} BPM\nKey: ${insight.key}`;
-      navigator.clipboard.writeText(text);
+  const handleCopy = async () => {
+    if (!insight) return;
+
+    const sections: string[] = [insight.summary];
+    const metadataLines: string[] = [];
+
+    if (insight.genre) metadataLines.push(`Genre: ${insight.genre}`);
+    if (insight.mood) metadataLines.push(`Mood: ${insight.mood}`);
+    if (insight.tempo !== undefined && insight.tempo !== null) {
+      metadataLines.push(`Tempo: ${insight.tempo} BPM`);
+    }
+    if (insight.key) metadataLines.push(`Key: ${insight.key}`);
+
+    if (metadataLines.length > 0) {
+      sections.push(metadataLines.join('\n'));
+    }
+
+    const text = sections.join('\n\n');
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        console.error('Failed to copy AI insight to clipboard:', error);
+      }
     }
   };
 

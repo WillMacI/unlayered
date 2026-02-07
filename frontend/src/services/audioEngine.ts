@@ -9,6 +9,7 @@ interface StemAudioNode {
   gainNode: GainNode;
   panNode: StereoPannerNode;
   url: string;
+  volume: number; // Track user's volume setting separately from mute state
 }
 
 export class AudioEngine {
@@ -69,6 +70,7 @@ export class AudioEngine {
         gainNode,
         panNode,
         url: audioUrl,
+        volume: 1, // Default volume
       });
 
       // Update duration (use longest stem)
@@ -219,7 +221,9 @@ export class AudioEngine {
   setVolume(stemId: string, volume: number): void {
     const stem = this.stems.get(stemId);
     if (stem) {
-      stem.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+      const clampedVolume = Math.max(0, Math.min(1, volume));
+      stem.volume = clampedVolume;
+      stem.gainNode.gain.value = clampedVolume;
     }
   }
 
@@ -239,7 +243,8 @@ export class AudioEngine {
   setMute(stemId: string, muted: boolean): void {
     const stem = this.stems.get(stemId);
     if (stem) {
-      stem.gainNode.gain.value = muted ? 0 : 1;
+      // When unmuting, restore the user's saved volume instead of resetting to 1
+      stem.gainNode.gain.value = muted ? 0 : stem.volume;
     }
   }
 
@@ -293,7 +298,8 @@ export class AudioEngine {
     }
 
     const channelData = stem.buffer.getChannelData(0); // Use first channel
-    const step = Math.floor(channelData.length / samples);
+    // Guard against divide by zero when samples exceeds buffer length
+    const step = Math.max(1, Math.floor(channelData.length / samples));
     const waveform: number[] = [];
 
     for (let i = 0; i < samples; i++) {
@@ -328,7 +334,8 @@ export class AudioEngine {
       // If buffer is mono, use channel 0 for both
       const idx = Math.min(channelIndex, stem.buffer!.numberOfChannels - 1);
       const channelData = stem.buffer!.getChannelData(idx);
-      const step = Math.floor(channelData.length / samples);
+      // Guard against divide by zero when samples exceeds buffer length
+      const step = Math.max(1, Math.floor(channelData.length / samples));
       const waveform: number[] = [];
 
       for (let i = 0; i < samples; i++) {

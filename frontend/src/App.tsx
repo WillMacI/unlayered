@@ -32,6 +32,12 @@ function App() {
   });
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [stemsLoaded, setStemsLoaded] = useState(false);
+
+  // Ref to hold current playback state for stable keyboard shortcut callbacks
+  const playbackStateRef = useRef(playbackState);
+  useEffect(() => {
+    playbackStateRef.current = playbackState;
+  }, [playbackState]);
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -53,7 +59,6 @@ function App() {
     duration: audioDuration,
     isLoading: audioLoading,
     error: audioError,
-    getWaveformData,
     getStereoWaveformData,
   } = useAudioEngine();
 
@@ -155,22 +160,22 @@ function App() {
     });
   }, [stems]);
 
-  const handlePlayPause = () => {
+  const handlePlayPause = useCallback(() => {
     if (playbackState.isPlaying) {
       pauseAudio();
     } else {
       playAudio();
     }
     setPlaybackState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
-  };
+  }, [playbackState.isPlaying, pauseAudio, playAudio]);
 
-  const handleSeek = (time: number) => {
+  const handleSeek = useCallback((time: number) => {
     seekAudio(time);
     setPlaybackState((prev) => ({ ...prev, currentTime: time }));
     userHasScrolled.current = false; // Snap back to playhead on seek
-  };
+  }, [seekAudio]);
 
-  const handleToggleMute = (stemId: string) => {
+  const handleToggleMute = useCallback((stemId: string) => {
     setStems((prev) =>
       prev.map((stem) => {
         if (stem.id === stemId) {
@@ -181,9 +186,9 @@ function App() {
         return stem;
       })
     );
-  };
+  }, [setAudioMute]);
 
-  const handleToggleSolo = (stemId: string) => {
+  const handleToggleSolo = useCallback((stemId: string) => {
     setStems((prev) => {
       const clickedStem = prev.find((s) => s.id === stemId);
       if (!clickedStem) return prev;
@@ -219,7 +224,7 @@ function App() {
 
       return updated;
     });
-  };
+  }, [setAudioMute]);
 
   const handleVolumeChange = (stemId: string, volume: number) => {
     setAudioVolume(stemId, volume);
@@ -254,57 +259,72 @@ function App() {
     setShowIntro(true);
   };
 
-  const handlePrevious = () => {
-    console.log('Previous track');
-  };
-
-  const handleNext = () => {
-    console.log('Next track');
-  };
-
-  // Keyboard shortcut helpers
-  const handleToggleMuteByIndex = (index: number) => {
+  // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
+  const handleToggleMuteByIndex = useCallback((index: number) => {
     const stem = sortedStems[index];
     if (stem) handleToggleMute(stem.id);
-  };
+  }, [sortedStems, handleToggleMute]);
 
-  const handleMuteAll = () => {
-    const allMuted = stems.every((s) => s.isMuted);
-    setStems((prev) =>
-      prev.map((s) => {
+  const handleMuteAll = useCallback(() => {
+    setStems((prev) => {
+      const allMuted = prev.every((s) => s.isMuted);
+      return prev.map((s) => {
         const newMuted = !allMuted;
         setAudioMute(s.id, newMuted);
         return { ...s, isMuted: newMuted };
-      })
-    );
-  };
+      });
+    });
+  }, [setAudioMute]);
 
-  const handleSoloActive = () => {
-    const activeStem = stems.find((s) => !s.isMuted);
-    if (activeStem) handleToggleSolo(activeStem.id);
-  };
+  const handleSoloActive = useCallback(() => {
+    setStems((prev) => {
+      const activeStem = prev.find((s) => !s.isMuted);
+      if (activeStem) {
+        // Trigger solo toggle via the callback pattern
+        const clickedStem = prev.find((s) => s.id === activeStem.id);
+        if (!clickedStem) return prev;
 
-  const adjustMasterVolume = (delta: number) => {
+        if (clickedStem.isSolo) {
+          const updated = prev.map((stem) => ({ ...stem, isSolo: false }));
+          updated.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
+          return updated;
+        }
+
+        const updated = prev.map((stem) => ({
+          ...stem,
+          isSolo: stem.id === activeStem.id,
+        }));
+        updated.forEach((stem) => {
+          setAudioMute(stem.id, stem.id !== activeStem.id);
+        });
+        return updated;
+      }
+      return prev;
+    });
+  }, [setAudioMute]);
+
+  const adjustMasterVolume = useCallback((delta: number) => {
     setPlaybackState((prev) => {
       const newVolume = Math.max(0, Math.min(1, prev.volume + delta));
       setMasterVolume(newVolume);
       return { ...prev, volume: newVolume };
     });
-  };
+  }, [setMasterVolume]);
 
 
 
-  // Define keyboard shortcuts
-  const shortcuts: KeyboardShortcut[] = [
+  // Define keyboard shortcuts - memoized to prevent listener churn
+  // Uses playbackStateRef for fresh values without adding to dependency array
+  const shortcuts: KeyboardShortcut[] = useMemo(() => [
     { key: ' ', action: handlePlayPause, description: 'Play/Pause' },
     {
       key: 'ArrowLeft',
-      action: () => handleSeek(Math.max(0, playbackState.currentTime - 5)),
+      action: () => handleSeek(Math.max(0, playbackStateRef.current.currentTime - 5)),
       description: 'Seek -5s',
     },
     {
       key: 'ArrowRight',
-      action: () => handleSeek(Math.min(playbackState.duration, playbackState.currentTime + 5)),
+      action: () => handleSeek(Math.min(playbackStateRef.current.duration, playbackStateRef.current.currentTime + 5)),
       description: 'Seek +5s',
     },
     { key: '1', action: () => handleToggleMuteByIndex(0), description: 'Toggle vocals' },
@@ -322,7 +342,7 @@ function App() {
       action: () => setShowShortcutsModal((prev) => !prev),
       description: 'Show shortcuts',
     },
-  ];
+  ], [handlePlayPause, handleSeek, handleToggleMuteByIndex, handleMuteAll, handleSoloActive, adjustMasterVolume]);
 
   // Enable keyboard shortcuts when audio file is loaded
   useKeyboardShortcuts(shortcuts, { enabled: !!audioFile });
@@ -425,7 +445,7 @@ function App() {
   }
 
   // Show Intro Screen if active
-  if (showIntro && audioFile) {
+  if (showIntro) {
     return (
       <SongIntro
         audioFile={audioFile}

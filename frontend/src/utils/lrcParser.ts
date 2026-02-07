@@ -44,6 +44,9 @@ export function parseLRC(lrcContent: string): { text: string; startTime: number;
  */
 export async function fetchAndParseLRC(url: string): Promise<{ text: string; startTime: number; endTime: number }[]> {
     const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch LRC from "${url}": ${response.status} ${response.statusText}`);
+    }
     const lrcContent = await response.text();
     return parseLRC(lrcContent);
 }
