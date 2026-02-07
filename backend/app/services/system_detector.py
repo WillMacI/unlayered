@@ -55,6 +55,9 @@ class SystemDetector:
             except Exception as e:
                 logger.warning(f"Error detecting GPU properties: {e}")
                 has_gpu = False
+                device = "cpu"
+                gpu_name = None
+                gpu_memory_gb = None
 
         # Detect system RAM
         system_memory = psutil.virtual_memory()
@@ -70,7 +73,7 @@ class SystemDetector:
 
         # Recommend max concurrent jobs based on resources
         max_concurrent_jobs = SystemDetector._recommend_max_jobs(
-            has_gpu, gpu_memory_gb, system_memory_gb, cpu_cores
+            has_gpu, gpu_memory_gb
         )
 
         logger.info(
@@ -131,9 +134,7 @@ class SystemDetector:
     @staticmethod
     def _recommend_max_jobs(
         has_gpu: bool,
-        gpu_memory_gb: Optional[float],
-        system_memory_gb: float,
-        cpu_cores: int
+        gpu_memory_gb: Optional[float]
     ) -> int:
         """
         Recommend maximum concurrent jobs based on resources.

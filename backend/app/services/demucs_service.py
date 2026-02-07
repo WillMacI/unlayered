@@ -127,7 +127,8 @@ class DemucsService:
         """
         try:
             # Run Demucs separation
-            origin, separated = self.separator.separate_audio_file(str(input_path))
+            logger.info(f"Running Demucs separation for job {job_id}")
+            _, separated = self.separator.separate_audio_file(str(input_path))
 
             stem_to_path = {}
 
@@ -210,4 +211,3 @@ class DemucsService:
             "shifts": self.shifts,
             "overlap": self.overlap
         }
-
