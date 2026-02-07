@@ -199,14 +199,14 @@ function App() {
   }, [seekAudio]);
 
   const handleToggleMute = useCallback((stemId: string) => {
-    const updatedStems = stemsRef.current.map((stem) => {
-      if (stem.id === stemId) {
-        return { ...stem, isMuted: !stem.isMuted };
-      }
-      return stem;
+    let nextStems: Stem[] = [];
+    setStems((prev) => {
+      nextStems = prev.map((stem) =>
+        stem.id === stemId ? { ...stem, isMuted: !stem.isMuted } : stem
+      );
+      return nextStems;
     });
-    updatedStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
-    setStems(updatedStems);
+    nextStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
   }, [setAudioMute]);
 
   const handleToggleSolo = useCallback((stemId: string) => {
@@ -291,14 +291,17 @@ function App() {
   }, [handleToggleMute]);
 
   const handleMuteAll = useCallback(() => {
-    const allMuted = stemsRef.current.every((s) => s.isMuted);
-    const newMuted = !allMuted;
-    const updatedStems = stemsRef.current.map((stem) => ({
-      ...stem,
-      isMuted: newMuted,
-    }));
-    updatedStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
-    setStems(updatedStems);
+    let nextStems: Stem[] = [];
+    setStems((prevStems) => {
+      const allMuted = prevStems.every((s) => s.isMuted);
+      const newMuted = !allMuted;
+      nextStems = prevStems.map((stem) => ({
+        ...stem,
+        isMuted: newMuted,
+      }));
+      return nextStems;
+    });
+    nextStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
   }, [setAudioMute]);
 
   const handleSoloActive = useCallback(() => {
@@ -329,11 +332,10 @@ function App() {
   }, [setAudioMute]);
 
   const adjustMasterVolume = useCallback((delta: number) => {
-    setPlaybackState((prev) => {
-      const newVolume = Math.max(0, Math.min(1, prev.volume + delta));
-      setMasterVolume(newVolume);
-      return { ...prev, volume: newVolume };
-    });
+    const currentVolume = playbackStateRef.current.volume;
+    const newVolume = Math.max(0, Math.min(1, currentVolume + delta));
+    setMasterVolume(newVolume);
+    setPlaybackState((prev) => ({ ...prev, volume: newVolume }));
   }, [setMasterVolume]);
 
 
