@@ -1,5 +1,5 @@
 """Audio separation API endpoints"""
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form
 from fastapi.responses import FileResponse
 from pathlib import Path
 from datetime import datetime
@@ -42,8 +42,8 @@ ALLOWED_AUDIO_TYPES = {
 async def upload_audio(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    quality: int = 1,
-    model: Optional[str] = None
+    quality: int = Form(1),
+    model: Optional[str] = Form(None)
 ):
     """
     Upload an audio file for separation.
