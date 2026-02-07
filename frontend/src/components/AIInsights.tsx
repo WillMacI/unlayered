@@ -1,4 +1,4 @@
-import { Sparkles, Music, Gauge, Key } from 'lucide-react';
+import { Sparkles, Music, Gauge, Key, Copy } from 'lucide-react';
 import type { AIInsight } from '../types/audio';
 
 interface AIInsightsProps {
@@ -6,86 +6,127 @@ interface AIInsightsProps {
 }
 
 export const AIInsights = ({ insight }: AIInsightsProps) => {
+  const handleCopy = async () => {
+    if (!insight) return;
+
+    const sections: string[] = [insight.summary];
+    const metadataLines: string[] = [];
+
+    if (insight.genre) metadataLines.push(`Genre: ${insight.genre}`);
+    if (insight.mood) metadataLines.push(`Mood: ${insight.mood}`);
+    if (insight.tempo !== undefined && insight.tempo !== null) {
+      metadataLines.push(`Tempo: ${insight.tempo} BPM`);
+    }
+    if (insight.key) metadataLines.push(`Key: ${insight.key}`);
+
+    if (metadataLines.length > 0) {
+      sections.push(metadataLines.join('\n'));
+    }
+
+    const text = sections.join('\n\n');
+
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        console.error('Failed to copy AI insight to clipboard:', error);
+      }
+    }
+  };
+
   if (!insight) {
     return (
-      <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 h-full">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-purple-500" />
-          <h3 className="text-lg font-semibold text-white">AI Insights</h3>
+      <div className="h-full rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-4"
+        style={{
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+        }}
+      >
+        <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-500">
+          <Sparkles className="w-6 h-6" />
         </div>
-        <p className="text-slate-400 text-sm">
-          Upload a song to see AI-generated insights...
-        </p>
+        <div>
+          <h3 className="text-sm font-semibold text-white">No Insights Yet</h3>
+          <p className="text-xs text-neutral-500 mt-1 max-w-[200px] mx-auto">
+            Upload an audio file to generate AI analysis of the track.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-4">
-        <Sparkles className="w-5 h-5 text-purple-500" />
-        <h3 className="text-lg font-semibold text-white">AI Insights</h3>
+    <div className="h-full rounded-xl overflow-hidden flex flex-col"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-subtle)',
+      }}
+    >
+      {/* Header */}
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="text-sm font-bold text-white">Track Insights</h3>
+        <button
+          onClick={handleCopy}
+          className="p-1.5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+          title="Copy to clipboard"
+        >
+          <Copy className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Summary */}
-      <div className="mb-6">
-        <p className="text-slate-300 text-sm leading-relaxed italic">
-          "{insight.summary}"
-        </p>
-        <p className="text-xs text-slate-500 mt-2">
-          — AI-generated analysis by Evan's magic ✨
-        </p>
-      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Summary Section */}
+        <div>
+          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Analysis</h4>
+          <p className="text-sm leading-relaxed text-neutral-300">
+            {insight.summary}
+          </p>
+        </div>
 
-      {/* Metadata */}
-      <div className="space-y-3 flex-1">
-        {insight.genre && (
-          <div className="flex items-start gap-3">
-            <Music className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-slate-500">Genre</p>
-              <p className="text-sm text-white font-medium">{insight.genre}</p>
+        <div className="h-px w-full bg-white/5" />
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {insight.genre && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Music className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Genre</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.genre}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.mood && (
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-slate-500">Mood</p>
-              <p className="text-sm text-white font-medium">{insight.mood}</p>
+          {insight.mood && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Mood</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.mood}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.tempo && (
-          <div className="flex items-start gap-3">
-            <Gauge className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-slate-500">Tempo</p>
-              <p className="text-sm text-white font-medium">{insight.tempo} BPM</p>
+          {insight.tempo !== undefined && insight.tempo !== null && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Gauge className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Tempo</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.tempo} <span className="text-[10px] text-neutral-500">BPM</span></p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.key && (
-          <div className="flex items-start gap-3">
-            <Key className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-slate-500">Key</p>
-              <p className="text-sm text-white font-medium">{insight.key}</p>
+          {insight.key && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Key className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Key</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.key}</p>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer note */}
-      <div className="mt-6 pt-4 border-t border-slate-700">
-        <p className="text-xs text-slate-500 text-center">
-          Blurb about the song pulled from AI...<br />
-          Evan gets to figure this out 🎵
-        </p>
+          )}
+        </div>
       </div>
     </div>
   );

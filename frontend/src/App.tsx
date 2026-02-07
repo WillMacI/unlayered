@@ -1,9 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type UIEvent } from 'react';
 import { PlaybackHeader } from './components/PlaybackHeader';
 import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
 import { AIInsights } from './components/AIInsights';
 import { FileUpload } from './components/FileUpload';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+
+import { SongIntro } from './components/SongIntro';
+import { useAudioEngine } from './hooks/useAudioEngine';
+import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import type { AudioFile, Stem, PlaybackState } from './types/audio';
 import {
   mockAudioFile,
@@ -11,33 +16,184 @@ import {
   mockAIInsight,
   mockCombinedWaveform,
   mockPeaks,
+  mockSongStructure,
 } from './utils/mockData';
 
 function App() {
-  const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile);
-  const [stems, setStems] = useState<Stem[]>(mockStems);
+  // const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile); // Start with mock
+  const [audioFile, setAudioFile] = useState<AudioFile | null>(null); // Start with Upload Screen
+  const [showIntro, setShowIntro] = useState(false); // Intro screen state
+  const [stems, setStems] = useState<Stem[]>([]);
+  const stemsRef = useRef(stems);
+  const prevStemsRef = useRef<Stem[]>([]);
+  const prevAnySoloRef = useRef(false);
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
     currentTime: 0,
     duration: mockAudioFile.duration,
     volume: 0.8,
   });
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [stemsLoaded, setStemsLoaded] = useState(false);
 
-  // Simulate playback
+  // Ref to hold current playback state for stable keyboard shortcut callbacks
+  const playbackStateRef = useRef(playbackState);
   useEffect(() => {
-    if (!playbackState.isPlaying) return;
+    playbackStateRef.current = playbackState;
+  }, [playbackState]);
+  useEffect(() => {
+    stemsRef.current = stems;
+  }, [stems]);
+  const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [showSidebar, setShowSidebar] = useState(true);
 
-    const interval = setInterval(() => {
-      setPlaybackState((prev) => {
-        if (prev.currentTime >= prev.duration) {
-          return { ...prev, isPlaying: false, currentTime: 0 };
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
+
+  // Initialize audio engine
+  const {
+    loadStems: loadAudioStems,
+    play: playAudio,
+    pause: pauseAudio,
+    seek: seekAudio,
+    setVolume: setAudioVolume,
+    setPan: setAudioPan,
+    setMute: setAudioMute,
+    setMasterVolume,
+    currentTime: audioCurrentTime,
+    duration: audioDuration,
+    isPlaying: audioIsPlaying,
+    isLoading: audioLoading,
+    error: audioError,
+    getStereoWaveformData,
+  } = useAudioEngine();
+
+  useEffect(() => {
+    const prevStems = prevStemsRef.current;
+    if (prevStems.length === 0) {
+      prevStemsRef.current = stems;
+      return;
+    }
+
+    const prevMutedById = new Map(prevStems.map((stem) => [stem.id, stem.isMuted]));
+    const anySolo = stems.some((stem) => stem.isSolo);
+    const soloChanged = anySolo !== prevAnySoloRef.current;
+    stems.forEach((stem) => {
+      const prevMuted = prevMutedById.get(stem.id);
+      const targetMuted = anySolo ? !stem.isSolo : stem.isMuted;
+      if (prevMuted === undefined || prevMuted !== stem.isMuted || anySolo || soloChanged) {
+        setAudioMute(stem.id, targetMuted);
+      }
+    });
+
+    prevStemsRef.current = stems;
+    prevAnySoloRef.current = anySolo;
+  }, [stems, setAudioMute]);
+
+  // Sync audio time to UI
+  useEffect(() => {
+    setPlaybackState((prev) => ({ ...prev, currentTime: audioCurrentTime }));
+  }, [audioCurrentTime]);
+
+  // Sync audio duration to UI
+  useEffect(() => {
+    if (audioDuration > 0) {
+      setPlaybackState((prev) => ({ ...prev, duration: audioDuration }));
+    }
+  }, [audioDuration]);
+
+  // Sync playing state to UI (also handles end-of-track updates)
+  useEffect(() => {
+    setPlaybackState((prev) => ({ ...prev, isPlaying: audioIsPlaying }));
+  }, [audioIsPlaying]);
+
+  // Sync master volume to audio engine
+  useEffect(() => {
+    setMasterVolume(playbackState.volume);
+  }, [playbackState.volume, setMasterVolume]);
+
+  // Load stems when audio file is set (only once)
+  useEffect(() => {
+    if (!audioFile || stemsLoaded || stems.length === 0) return;
+
+    // Check if any stems have audio URLs (for real audio)
+    const stemsWithAudio = stems.filter((s) => s.audioUrl);
+    if (stemsWithAudio.length === 0) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        await loadAudioStems(stems);
+        if (cancelled) return;
+
+        setStemsLoaded(true);
+
+        // Generate real waveforms from loaded buffers
+        setStems(prevStems => {
+          const updatedStems = prevStems.map(stem => {
+            if (stem.audioUrl) {
+              // Generate 2000 points for detailed stereo visualization
+              const realWaveform = getStereoWaveformData(stem.id, 2000);
+              // Real waveform comes back as { left: [], right: [] } always from our new method helper
+              // Check if it has data
+              if (realWaveform.left.length > 0 && realWaveform.left.some(v => v > 0)) {
+                return { ...stem, waveformData: realWaveform };
+              }
+            }
+            return stem;
+          });
+
+          // Calculate combined waveform (average of all active stems)
+          const length = 2000;
+          const combined = new Array(length).fill(0);
+          let activeCount = 0;
+
+          updatedStems.forEach(stem => {
+            // Handle both mono and stereo structures for the combined view logic
+            let dataToAdd: number[] = [];
+            if (Array.isArray(stem.waveformData)) {
+              if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
+            } else {
+              // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
+              const stereoData = stem.waveformData as { left: number[], right: number[] };
+              if (stereoData.left.length === length) {
+                // Simple mono mixdown for visualization
+                dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
+              }
+            }
+
+            if (dataToAdd.length === length) {
+              activeCount++;
+              for (let i = 0; i < length; i++) {
+                combined[i] += dataToAdd[i];
+              }
+            }
+          });
+
+          if (activeCount > 0) {
+            // Normalize combined waveform
+            const max = Math.max(...combined) || 1;
+            const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
+            setCombinedWaveform(normalizedCombined);
+          }
+
+          return updatedStems;
+        });
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('Stem loading failed; will allow retry on next attempt.', err);
         }
-        return { ...prev, currentTime: prev.currentTime + 0.1 };
-      });
-    }, 100);
+      }
+    };
 
-    return () => clearInterval(interval);
-  }, [playbackState.isPlaying]);
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData, stems]);
 
   // Dynamic track ordering: sort stems by activity
   const sortedStems = useMemo(() => {
@@ -57,41 +213,49 @@ function App() {
     });
   }, [stems]);
 
-  const handlePlayPause = () => {
-    setPlaybackState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
-  };
+  const handlePlayPause = useCallback(() => {
+    if (playbackStateRef.current.isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio();
+    }
+  }, [pauseAudio, playAudio]);
 
-  const handleSeek = (time: number) => {
+  const handleSeek = useCallback((time: number) => {
+    seekAudio(time);
     setPlaybackState((prev) => ({ ...prev, currentTime: time }));
-  };
+    userHasScrolled.current = false; // Snap back to playhead on seek
+  }, [seekAudio]);
 
-  const handleToggleMute = (stemId: string) => {
-    setStems((prev) =>
-      prev.map((stem) =>
+  const handleToggleMute = useCallback((stemId: string) => {
+    setStems((prev) => {
+      const nextStems = prev.map((stem) =>
         stem.id === stemId ? { ...stem, isMuted: !stem.isMuted } : stem
-      )
-    );
-  };
+      );
+      return nextStems;
+    });
+  }, []);
 
-  const handleToggleSolo = (stemId: string) => {
+  const handleToggleSolo = useCallback((stemId: string) => {
     setStems((prev) => {
       const clickedStem = prev.find((s) => s.id === stemId);
       if (!clickedStem) return prev;
 
-      // If toggling solo off
+      // If toggling solo off - restore original mute states
       if (clickedStem.isSolo) {
         return prev.map((stem) => ({ ...stem, isSolo: false }));
       }
 
-      // Toggle solo on
+      // Toggle solo on - mute all except the soloed stem
       return prev.map((stem) => ({
         ...stem,
         isSolo: stem.id === stemId,
       }));
     });
-  };
+  }, []);
 
   const handleVolumeChange = (stemId: string, volume: number) => {
+    setAudioVolume(stemId, volume);
     setStems((prev) =>
       prev.map((stem) =>
         stem.id === stemId ? { ...stem, volume } : stem
@@ -100,6 +264,7 @@ function App() {
   };
 
   const handlePanChange = (stemId: string, pan: number) => {
+    setAudioPan(stemId, pan);
     setStems((prev) =>
       prev.map((stem) =>
         stem.id === stemId ? { ...stem, pan } : stem
@@ -107,20 +272,201 @@ function App() {
     );
   };
 
+  // Debug logging
+  // console.log('App Render: audioFile:', audioFile);
+
   const handleFileSelect = (file: File) => {
     // In a real app, this would trigger backend processing
     console.log('File selected:', file);
-    // For now, just use mock data
+
+    // Simulate loading optimization or preparation
     setAudioFile(mockAudioFile);
+    setStemsLoaded(false);
+    setCombinedWaveform([]);
+    setPlaybackState((prev) => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      duration: mockAudioFile.duration,
+    }));
+    // setStems(mockStems); // Keeping stems empty until "Enter Studio"? Or preload?
+    // Let's preload them so main view is ready.
+    setStems(mockStems);
+    setShowIntro(true);
   };
 
-  const handlePrevious = () => {
-    console.log('Previous track');
-  };
+  // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
+  const handleToggleMuteByIndex = useCallback((index: number) => {
+    const shortcutOrder = ['vocals', 'guitar', 'drums', 'bass', 'other'];
+    const targetType = shortcutOrder[index];
+    if (!targetType) return;
 
-  const handleNext = () => {
-    console.log('Next track');
-  };
+    const stem = stemsRef.current.find((s) => s.type === targetType);
+    if (stem) handleToggleMute(stem.id);
+  }, [handleToggleMute]);
+
+  const handleMuteAll = useCallback(() => {
+    setStems((prevStems) => {
+      const allMuted = prevStems.every((s) => s.isMuted);
+      const newMuted = !allMuted;
+      const nextStems = prevStems.map((stem) => ({
+        ...stem,
+        isMuted: newMuted,
+      }));
+      return nextStems;
+    });
+  }, []);
+
+  const handleSoloActive = useCallback(() => {
+    setStems((prev) => {
+      const activeStem = prev.find((s) => !s.isMuted);
+      if (activeStem) {
+        // Trigger solo toggle via the callback pattern
+        const clickedStem = prev.find((s) => s.id === activeStem.id);
+        if (!clickedStem) return prev;
+
+        if (clickedStem.isSolo) {
+          return prev.map((stem) => ({ ...stem, isSolo: false }));
+        }
+
+        return prev.map((stem) => ({
+          ...stem,
+          isSolo: stem.id === activeStem.id,
+        }));
+      }
+      return prev;
+    });
+  }, []);
+
+  const adjustMasterVolume = useCallback((delta: number) => {
+    const currentVolume = playbackStateRef.current.volume;
+    const newVolume = Math.max(0, Math.min(1, currentVolume + delta));
+    setMasterVolume(newVolume);
+    setPlaybackState((prev) => ({ ...prev, volume: newVolume }));
+  }, [setMasterVolume]);
+
+
+
+  // Define keyboard shortcuts - memoized to prevent listener churn
+  // Uses playbackStateRef for fresh values without adding to dependency array
+  const shortcuts: KeyboardShortcut[] = useMemo(() => [
+    { key: ' ', action: handlePlayPause, description: 'Play/Pause', category: 'playback' },
+    {
+      key: 'ArrowLeft',
+      action: () => handleSeek(Math.max(0, playbackStateRef.current.currentTime - 5)),
+      description: 'Seek -5s',
+      category: 'playback',
+    },
+    {
+      key: 'ArrowRight',
+      action: () => handleSeek(Math.min(playbackStateRef.current.duration, playbackStateRef.current.currentTime + 5)),
+      description: 'Seek +5s',
+      category: 'playback',
+    },
+    { key: '1', action: () => handleToggleMuteByIndex(0), description: 'Toggle vocals', category: 'stem' },
+    { key: '2', action: () => handleToggleMuteByIndex(1), description: 'Toggle guitar', category: 'stem' },
+    { key: '3', action: () => handleToggleMuteByIndex(2), description: 'Toggle drums', category: 'stem' },
+    { key: '4', action: () => handleToggleMuteByIndex(3), description: 'Toggle bass', category: 'stem' },
+    { key: '5', action: () => handleToggleMuteByIndex(4), description: 'Toggle other', category: 'stem' },
+    { key: 'm', action: handleMuteAll, description: 'Mute all', category: 'stem' },
+    { key: 's', action: handleSoloActive, description: 'Solo active stem', category: 'stem' },
+    { key: '=', action: () => adjustMasterVolume(0.1), description: 'Volume up', category: 'volume' },
+    { key: '+', shift: true, action: () => adjustMasterVolume(0.1), description: 'Volume up', category: 'volume' },
+    { key: '-', action: () => adjustMasterVolume(-0.1), description: 'Volume down', category: 'volume' },
+    {
+      key: '?',
+      shift: true,
+      action: () => setShowShortcutsModal((prev) => !prev),
+      description: 'Show shortcuts',
+      category: 'general',
+    },
+  ], [handlePlayPause, handleSeek, handleToggleMuteByIndex, handleMuteAll, handleSoloActive, adjustMasterVolume]);
+
+  // Enable keyboard shortcuts only when audio file is loaded and intro is not shown
+  useKeyboardShortcuts(shortcuts, { enabled: !!audioFile && !showIntro });
+
+  // Scroll Sync Logic
+  const scrollContainers = useRef<Set<HTMLDivElement>>(new Set());
+  const isAutoScrolling = useRef(false);
+  const userHasScrolled = useRef(false);
+
+  const registerScrollRef = useCallback((ref: HTMLDivElement | null) => {
+    if (ref) {
+      scrollContainers.current.add(ref);
+    } else {
+      // Clean up any containers that are no longer connected
+      scrollContainers.current.forEach((container) => {
+        if (!container.isConnected) {
+          scrollContainers.current.delete(container);
+        }
+      });
+    }
+  }, []);
+
+  const handleGlobalScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
+    if (isAutoScrolling.current) return;
+
+    // User is scrolling manually
+    userHasScrolled.current = true;
+    const target = e.currentTarget;
+    const scrollLeft = target.scrollLeft;
+
+    isAutoScrolling.current = true;
+    scrollContainers.current.forEach((container) => {
+      if (container !== target && container.isConnected) {
+        container.scrollLeft = scrollLeft;
+      }
+    });
+    // Small timeout to allow the scroll events to settle before unflagging
+    requestAnimationFrame(() => {
+      isAutoScrolling.current = false;
+    });
+  }, []);
+
+  const handleUserInteract = useCallback(() => {
+    // If user clicks seeking, we can re-enable auto-scroll or keep it as is
+    // For now, let's say seeking DOES NOT disable auto-scroll (it "resets" userHasScrolled)
+    // userHasScrolled.current = false;
+    // Actually, usually seeking jumps the playhead, so we SHOULD snap to it.
+    userHasScrolled.current = false;
+  }, []);
+
+  // Update scroll based on playhead
+  useEffect(() => {
+    const { duration, currentTime } = playbackState;
+    // Always follow playhead if user hasn't scrolled, even if paused.
+    if (!userHasScrolled.current && duration > 0 && zoomLevel > 1) {
+      const containers = Array.from(scrollContainers.current);
+      if (containers.length > 0 && containers[0].isConnected) {
+        const container = containers[0]; // Use first as reference for dimensions
+        const totalWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+
+        const progress = currentTime / duration;
+        const targetScroll = (totalWidth * progress) - (clientWidth / 2); // Center playhead
+
+        if (Math.abs(container.scrollLeft - targetScroll) > 5) { // Only scroll if difference is significant
+          isAutoScrolling.current = true;
+          containers.forEach(c => {
+            if (c.isConnected) c.scrollLeft = targetScroll;
+          });
+          requestAnimationFrame(() => {
+            isAutoScrolling.current = false;
+          });
+        }
+      }
+    }
+  }, [playbackState, zoomLevel]);
+
+  // Reset user scroll flag on play start
+  useEffect(() => {
+    if (playbackState.isPlaying) {
+      userHasScrolled.current = false;
+    }
+  }, [playbackState.isPlaying]);
+
+  // Show loading screen if processing
+  /* Removed demo loading screen logic */
 
   // If no audio file, show upload screen
   if (!audioFile) {
@@ -139,80 +485,132 @@ function App() {
     );
   }
 
+  // Show Intro Screen if active
+  if (showIntro) {
+    return (
+      <SongIntro
+        audioFile={audioFile}
+        onStart={() => setShowIntro(false)}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="min-h-screen flex flex-col font-sans text-white select-none" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        shortcuts={shortcuts}
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+      />
+
+      {/* Error Display */}
+      {audioError && (
+        <div className="bg-red-900/20 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
+          <p className="text-sm font-medium">Audio Error: {audioError}</p>
+        </div>
+      )}
+
+      {/* Loading Display */}
+      {audioLoading && (
+        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
+          <p className="text-sm font-medium">Loading audio files...</p>
+        </div>
+      )}
+
       {/* Header */}
       <PlaybackHeader
         audioFile={audioFile}
         playbackState={playbackState}
         onPlayPause={handlePlayPause}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
+        onPrevious={() => { }}
+        onNext={() => { }}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        zoomLevel={zoomLevel}
+        showSidebar={showSidebar}
+        onToggleSidebar={() => setShowSidebar(!showSidebar)}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 p-4">
-        {/* Left: Waveforms */}
-        <div className="flex-1 space-y-4">
-          {/* Combined Waveform */}
-          <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-700">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">
-                  Combined / Stereo Mix
-                </h3>
-                <span className="text-xs text-slate-500">
-                  Both mixes in one waveform
-                </span>
+      <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden">
+        {/* Left: Waveforms - Main "Page" feel */}
+        <div className="flex-1 flex flex-col space-y-6">
+
+          {/* Combined Waveform Card */}
+          <div className="rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-neutral-800 flex items-center justify-center text-neutral-500">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white tracking-tight">
+                    Stereo / Master
+                  </h3>
+                  <p className="text-xs text-neutral-500">Original Mix</p>
+                </div>
               </div>
             </div>
-            <WaveformDisplay
-              waveformData={mockCombinedWaveform}
-              currentTime={playbackState.currentTime}
-              duration={playbackState.duration}
-              peaks={mockPeaks}
-              color="#06b6d4"
-              label=""
-              onSeek={handleSeek}
-              height={100}
-              isCombined
-            />
-            <div className="px-4 py-2 bg-slate-800/50 text-center text-xs text-slate-500">
-              Click to traverse song
+            <div className="py-2">
+              <WaveformDisplay
+                waveformData={combinedWaveform}
+                currentTime={playbackState.currentTime}
+                duration={playbackState.duration}
+                peaks={mockPeaks}
+                color="#D4AF37" // Metallic Gold
+                label=""
+                onSeek={handleSeek}
+                height={120}
+                isCombined
+                sections={mockSongStructure}
+                zoom={zoomLevel}
+                onScroll={handleGlobalScroll}
+                onInteract={handleUserInteract}
+                setScrollRef={registerScrollRef}
+              />
             </div>
           </div>
 
-          {/* Individual Stems */}
-          <div className="space-y-3">
-            {sortedStems.map((stem) => (
-              <StemTrack
-                key={stem.id}
-                stem={stem}
-                currentTime={playbackState.currentTime}
-                duration={playbackState.duration}
-                onToggleMute={handleToggleMute}
-                onToggleSolo={handleToggleSolo}
-                onVolumeChange={handleVolumeChange}
-                onPanChange={handlePanChange}
-                onSeek={handleSeek}
-              />
-            ))}
+          {/* Individual Stems List */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold px-1" style={{ color: 'var(--text-primary)' }}>Stems</h3>
+            <div className="space-y-px rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              {sortedStems.map((stem) => (
+                <StemTrack
+                  key={stem.id}
+                  stem={stem}
+                  anySolo={stems.some((s) => s.isSolo)}
+                  currentTime={playbackState.currentTime}
+                  duration={playbackState.duration}
+                  onToggleMute={handleToggleMute}
+                  onToggleSolo={handleToggleSolo}
+                  onVolumeChange={handleVolumeChange}
+                  onPanChange={handlePanChange}
+                  onSeek={handleSeek}
+                  zoom={zoomLevel}
+                  onScroll={handleGlobalScroll}
+                  onInteract={handleUserInteract}
+                  setScrollRef={registerScrollRef}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Info Note */}
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-            <p className="text-xs text-slate-400 text-center">
-              <span className="font-semibold text-slate-300">Note:</span> Tracks
-              are locked and automatically reorder based on audio presence,
-              volume, and mute state. Muted or silent tracks move to the bottom.
+          <div className="px-2 mt-4">
+            <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+              Press <kbd className="px-1.5 py-0.5 rounded-md bg-white/10 font-medium text-[10px]">Shift+?</kbd> for keyboard shortcuts
             </p>
           </div>
         </div>
 
-        {/* Right: AI Insights */}
-        <div className="w-80">
-          <AIInsights insight={mockAIInsight} />
-        </div>
+        {/* Right: AI Insights (Sidebar) */}
+        {showSidebar && (
+          <div className="w-[340px] flex-shrink-0 transition-all duration-300">
+            <AIInsights insight={mockAIInsight} />
+          </div>
+        )}
       </div>
     </div>
   );

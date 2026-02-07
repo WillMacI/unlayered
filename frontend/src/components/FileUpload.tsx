@@ -50,18 +50,17 @@ export const FileUpload = ({ onFileSelect }: FileUploadProps) => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`border-2 border-dashed rounded-lg p-12 transition-all ${
-        isDragging
-          ? 'border-blue-500 bg-blue-500/10'
-          : 'border-slate-600 hover:border-slate-500'
-      }`}
+      className={`border-2 border-dashed rounded-lg p-12 transition-all cursor-pointer ${isDragging
+          ? 'border-[#D4AF37] bg-white/5'
+          : 'border-neutral-700 hover:border-neutral-600 hover:bg-white/5'
+        }`}
     >
       <div className="flex flex-col items-center gap-4">
-        <div className="p-4 bg-slate-800 rounded-full">
+        <div className="p-4 rounded-full bg-white/5">
           {isDragging ? (
-            <Upload className="w-12 h-12 text-blue-500" />
+            <Upload className="w-12 h-12 text-[#D4AF37]" />
           ) : (
-            <FileAudio className="w-12 h-12 text-slate-400" />
+            <FileAudio className="w-12 h-12 text-neutral-500" />
           )}
         </div>
 
@@ -69,10 +68,10 @@ export const FileUpload = ({ onFileSelect }: FileUploadProps) => {
           <h3 className="text-xl font-semibold text-white mb-2">
             {isDragging ? 'Drop your audio file' : 'Upload Audio File'}
           </h3>
-          <p className="text-slate-400 text-sm mb-4">
+          <p className="text-neutral-400 text-sm mb-4">
             Drag and drop or click to browse
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-neutral-500">
             Supports MP3, WAV, FLAC, and other audio formats
           </p>
         </div>
@@ -84,7 +83,7 @@ export const FileUpload = ({ onFileSelect }: FileUploadProps) => {
             onChange={handleFileInput}
             className="hidden"
           />
-          <div className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+          <div className="px-6 py-3 bg-[#D4AF37] hover:bg-[#b5952f] text-black rounded-lg font-medium transition-colors inline-block">
             Browse Files
           </div>
         </label>
