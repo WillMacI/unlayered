@@ -193,7 +193,14 @@ def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False
     """
     global _system_capabilities
 
-    if _system_capabilities is None or force_refresh:
+    # Re-detect if cache is empty, refresh requested, or force_cpu conflicts with cache
+    should_refresh = (
+        _system_capabilities is None or
+        force_refresh or
+        (force_cpu and _system_capabilities is not None and _system_capabilities.device != "cpu")
+    )
+
+    if should_refresh:
         _system_capabilities = SystemDetector.detect_capabilities(force_cpu)
 
     return _system_capabilities

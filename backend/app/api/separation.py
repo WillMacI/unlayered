@@ -98,11 +98,25 @@ async def upload_audio(
         raise HTTPException(status_code=500, detail="Error saving uploaded file")
 
     # Validate actual file content (not just MIME type which can be spoofed)
+    # Note: We use a simple size/extension check for MP3 since soundfile/libsndfile
+    # often lacks MP3 support. Demucs uses ffmpeg internally which handles all formats.
     try:
         import soundfile as sf
-        # Try to read audio metadata to verify it's a valid audio file
-        info = sf.info(str(input_path))
-        logger.info(f"Validated audio file: {info.samplerate}Hz, {info.channels} channels, {info.duration:.1f}s")
+        file_ext = input_path.suffix.lower()
+
+        # For formats soundfile supports (WAV, FLAC, OGG), validate with soundfile
+        if file_ext in ['.wav', '.flac', '.ogg']:
+            info = sf.info(str(input_path))
+            logger.info(f"Validated audio file: {info.samplerate}Hz, {info.channels} channels, {info.duration:.1f}s")
+        # For MP3 and other formats, do basic file size check
+        # (Demucs will validate properly using ffmpeg during processing)
+        elif file_ext in ['.mp3', '.m4a', '.aac']:
+            file_size = input_path.stat().st_size
+            if file_size < 100:  # Suspiciously small
+                raise ValueError(f"File too small ({file_size} bytes) to be valid audio")
+            logger.info(f"Accepted {file_ext} file ({file_size} bytes) - will be validated by Demucs")
+        else:
+            logger.warning(f"Unknown audio format: {file_ext}")
     except Exception as e:
         # Invalid audio file - clean up and reject
         logger.warning(f"Invalid audio file for job {job_id}: {e}")
@@ -114,6 +128,15 @@ async def upload_audio(
 
     # Get system capabilities
     capabilities = get_system_capabilities(force_cpu=settings.force_cpu)
+
+    # Check if system is at capacity (enforce max_concurrent_jobs)
+    job_store = get_job_store()
+    active_jobs = job_store.count(JobStatus.PROCESSING)
+    if active_jobs >= capabilities.max_concurrent_jobs:
+        raise HTTPException(
+            status_code=429,
+            detail=f"System at capacity. Currently processing {active_jobs} job(s). Please try again later."
+        )
 
     # Determine which model to use
     if model is None:
@@ -139,8 +162,7 @@ async def upload_audio(
         output_dir=str(settings.output_dir / job_id)
     )
 
-    # Add to job store
-    job_store = get_job_store()
+    # Add to job store (already retrieved above for capacity check)
     job_store.add(job)
 
     # Queue background processing

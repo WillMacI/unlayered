@@ -15,14 +15,10 @@ class Settings(BaseSettings):
     max_file_size: int = 100 * 1024 * 1024  # 100MB
 
     # Demucs Model Settings
-    demucs_model_default: str = "htdemucs_ft"  # Default model if auto-detection disabled
-    demucs_segment: Optional[int] = None  # Auto-determined based on system
-    demucs_shifts_default: int = 1  # Default quality (1-5)
-    demucs_overlap: float = 0.25
+    demucs_overlap: float = 0.25  # Overlap between segments (used by DemucsService)
 
     # System Detection
-    auto_detect_capabilities: bool = True
-    force_cpu: bool = False  # Override GPU detection
+    force_cpu: bool = False  # Override GPU detection if needed
 
     # Paths
     upload_dir: Path = Path("./uploads")
@@ -30,9 +26,7 @@ class Settings(BaseSettings):
     cache_dir: Path = Path("./cache")
 
     # Performance
-    use_gpu: bool = True  # Deprecated - use auto_detect_capabilities
-    max_workers: int = 2
-    processing_timeout: int = 600  # 10 minutes max
+    max_workers: int = 2  # Thread pool workers for concurrent separation jobs
 
     class Config:
         env_file = ".env"
