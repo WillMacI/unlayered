@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { WaveformPeak } from '../types/audio';
+import type { WaveformPeak, SongSection } from '../types/audio';
+import { StructureMarkers } from './StructureMarkers';
 
 interface WaveformDisplayProps {
   waveformData: number[];
@@ -11,6 +12,7 @@ interface WaveformDisplayProps {
   onSeek?: (time: number) => void;
   height?: number;
   isCombined?: boolean;
+  sections?: SongSection[];
 }
 
 export const WaveformDisplay = ({
@@ -23,10 +25,12 @@ export const WaveformDisplay = ({
   onSeek,
   height = 80,
   isCombined = false,
+  sections,
 }: WaveformDisplayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [flashingPeak, setFlashingPeak] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Check if we're near a peak and flash
   useEffect(() => {
@@ -90,6 +94,19 @@ export const WaveformDisplay = ({
 
   }, [waveformData, currentTime, duration, color]);
 
+  // Update container width on mount and resize
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
+    };
+
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onSeek || !canvasRef.current) return;
 
@@ -130,6 +147,17 @@ export const WaveformDisplay = ({
         style={{ height: `${height}px` }}
         onClick={handleCanvasClick}
       />
+
+      {/* Structure Markers */}
+      {sections && sections.length > 0 && (
+        <StructureMarkers
+          sections={sections}
+          duration={duration}
+          currentTime={currentTime}
+          onSectionClick={(section) => onSeek?.(section.startTime)}
+          containerWidth={containerWidth}
+        />
+      )}
 
       {/* Hover instruction */}
       {onSeek && (

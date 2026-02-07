@@ -1,0 +1,334 @@
+/**
+ * AudioEngine - Core audio playback system using Web Audio API
+ * Handles multi-stem synchronization, individual controls, and master playback
+ */
+
+interface StemAudioNode {
+  buffer: AudioBuffer | null;
+  source: AudioBufferSourceNode | null;
+  gainNode: GainNode;
+  panNode: StereoPannerNode;
+  url: string;
+}
+
+export class AudioEngine {
+  private context: AudioContext | null = null;
+  private stems: Map<string, StemAudioNode> = new Map();
+  private masterGain: GainNode | null = null;
+  private startTime: number = 0;
+  private pauseTime: number = 0;
+  private isPlaying: boolean = false;
+  private duration: number = 0;
+
+  /**
+   * Initialize the audio context and master gain
+   */
+  async init(): Promise<void> {
+    if (this.context) return;
+
+    this.context = new AudioContext();
+    this.masterGain = this.context.createGain();
+    this.masterGain.connect(this.context.destination);
+
+    // Resume context if suspended (Chrome autoplay policy)
+    if (this.context.state === 'suspended') {
+      await this.context.resume();
+    }
+  }
+
+  /**
+   * Load an audio stem from URL
+   */
+  async loadStem(stemId: string, audioUrl: string): Promise<void> {
+    if (!this.context || !this.masterGain) {
+      throw new Error('AudioEngine not initialized');
+    }
+
+    try {
+      // Fetch audio file
+      const response = await fetch(audioUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch ${audioUrl}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await this.context.decodeAudioData(arrayBuffer);
+
+      // Create audio nodes
+      const gainNode = this.context.createGain();
+      const panNode = this.context.createStereoPanner();
+
+      // Connect: pan -> gain -> master
+      panNode.connect(gainNode);
+      gainNode.connect(this.masterGain);
+
+      // Store stem
+      this.stems.set(stemId, {
+        buffer: audioBuffer,
+        source: null,
+        gainNode,
+        panNode,
+        url: audioUrl,
+      });
+
+      // Update duration (use longest stem)
+      if (audioBuffer.duration > this.duration) {
+        this.duration = audioBuffer.duration;
+      }
+    } catch (error) {
+      console.error(`Failed to load stem ${stemId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Play all stems synchronously
+   */
+  play(): void {
+    if (!this.context) return;
+
+    // Prevent multiple play calls
+    if (this.isPlaying) {
+      console.warn('Already playing');
+      return;
+    }
+
+    // Set playing state immediately to prevent race conditions
+    this.isPlaying = true;
+
+    // Resume context if needed
+    if (this.context.state === 'suspended') {
+      this.context.resume();
+    }
+
+    // Calculate start offset
+    const offset = this.pauseTime;
+
+    // Stop any existing sources first (cleanup)
+    this.stems.forEach((stem) => {
+      if (stem.source) {
+        try {
+          stem.source.stop();
+          stem.source.disconnect();
+        } catch (e) {
+          // Ignore errors if already stopped
+        }
+        stem.source = null;
+      }
+    });
+
+    // Create and start sources for all stems
+    this.stems.forEach((stem) => {
+      if (!stem.buffer) return;
+
+      // Create new source (AudioBufferSourceNode is one-shot)
+      const source = this.context!.createBufferSource();
+      source.buffer = stem.buffer;
+
+      // Connect to existing gain/pan chain
+      source.connect(stem.panNode);
+
+      // Start playback from offset
+      source.start(0, offset);
+
+      // Handle end of playback
+      source.onended = () => {
+        if (this.isPlaying && this.getCurrentTime() >= this.duration) {
+          this.pause();
+          this.seek(0);
+        }
+      };
+
+      stem.source = source;
+    });
+
+    this.startTime = this.context.currentTime - offset;
+  }
+
+  /**
+   * Pause all stems
+   */
+  pause(): void {
+    if (!this.context) return;
+
+    // Prevent multiple pause calls
+    if (!this.isPlaying) {
+      console.warn('Already paused');
+      return;
+    }
+
+    // Store current time BEFORE setting isPlaying to false
+    // (getCurrentTime() checks isPlaying to determine which time to return)
+    this.pauseTime = this.context.currentTime - this.startTime;
+
+    // Set paused state after capturing time
+    this.isPlaying = false;
+
+    // Stop and disconnect all sources
+    this.stems.forEach((stem) => {
+      if (stem.source) {
+        try {
+          stem.source.stop();
+          stem.source.disconnect();
+        } catch (error) {
+          // Ignore if already stopped
+          console.warn('Error stopping source:', error);
+        }
+        stem.source = null;
+      }
+    });
+  }
+
+  /**
+   * Seek to specific time
+   */
+  seek(time: number): void {
+    const wasPlaying = this.isPlaying;
+
+    // Stop playback if playing
+    if (this.isPlaying) {
+      // Stop all sources
+      this.stems.forEach((stem) => {
+        if (stem.source) {
+          try {
+            stem.source.stop();
+            stem.source.disconnect();
+          } catch (error) {
+            // Ignore
+          }
+          stem.source = null;
+        }
+      });
+
+      // Set to false after stopping sources
+      this.isPlaying = false;
+    }
+
+    // Update pause time to the new seek position
+    this.pauseTime = Math.max(0, Math.min(time, this.duration));
+
+    // Resume if was playing
+    if (wasPlaying) {
+      this.play();
+    }
+  }
+
+  /**
+   * Set volume for a specific stem (0-1)
+   */
+  setVolume(stemId: string, volume: number): void {
+    const stem = this.stems.get(stemId);
+    if (stem) {
+      stem.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  /**
+   * Set pan for a specific stem (-1 to 1)
+   */
+  setPan(stemId: string, pan: number): void {
+    const stem = this.stems.get(stemId);
+    if (stem) {
+      stem.panNode.pan.value = Math.max(-1, Math.min(1, pan));
+    }
+  }
+
+  /**
+   * Mute/unmute a specific stem
+   */
+  setMute(stemId: string, muted: boolean): void {
+    const stem = this.stems.get(stemId);
+    if (stem) {
+      stem.gainNode.gain.value = muted ? 0 : 1;
+    }
+  }
+
+  /**
+   * Set master volume (0-1)
+   */
+  setMasterVolume(volume: number): void {
+    if (this.masterGain) {
+      this.masterGain.gain.value = Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  /**
+   * Get current playback time
+   */
+  getCurrentTime(): number {
+    if (!this.context) return 0;
+
+    if (this.isPlaying) {
+      return this.context.currentTime - this.startTime;
+    }
+
+    return this.pauseTime;
+  }
+
+  /**
+   * Get total duration
+   */
+  getDuration(): number {
+    return this.duration;
+  }
+
+  /**
+   * Check if playing
+   */
+  getIsPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  /**
+   * Clean up all resources
+   */
+  cleanup(): void {
+    // Stop playback first
+    if (this.isPlaying) {
+      this.isPlaying = false;
+
+      // Stop all sources
+      this.stems.forEach((stem) => {
+        if (stem.source) {
+          try {
+            stem.source.stop();
+            stem.source.disconnect();
+          } catch (e) {
+            // Ignore
+          }
+          stem.source = null;
+        }
+      });
+    }
+
+    // Disconnect all nodes
+    this.stems.forEach((stem) => {
+      try {
+        stem.gainNode.disconnect();
+        stem.panNode.disconnect();
+      } catch (e) {
+        // Ignore if already disconnected
+      }
+    });
+
+    this.stems.clear();
+
+    if (this.masterGain) {
+      try {
+        this.masterGain.disconnect();
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    if (this.context) {
+      this.context.close();
+    }
+
+    this.context = null;
+    this.masterGain = null;
+    this.duration = 0;
+    this.pauseTime = 0;
+    this.startTime = 0;
+  }
+}

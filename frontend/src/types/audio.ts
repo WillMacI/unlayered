@@ -1,14 +1,5 @@
 export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'other';
 
-export interface AudioFile {
-  id: string;
-  name: string;
-  artist: string;
-  duration: number;
-  format: string;
-  path?: string;
-}
-
 export interface Stem {
   id: string;
   type: StemType;
@@ -22,6 +13,8 @@ export interface Stem {
   waveformData: number[];
   hasAudio: boolean;
   order: number;
+  audioUrl?: string;        // URL to audio file
+  audioBuffer?: ArrayBuffer; // Loaded audio data
 }
 
 export interface PlaybackState {
@@ -42,4 +35,47 @@ export interface AIInsight {
   mood?: string;
   tempo?: number;
   key?: string;
+}
+
+export interface AudioLoadingState {
+  isLoading: boolean;
+  progress: number; // 0-100
+  currentStem: string | null;
+}
+
+export type ProcessingStage = 'uploading' | 'analyzing' | 'separating' | 'finalizing' | 'complete';
+
+export interface ProcessingStatus {
+  stage: ProcessingStage;
+  progress: number;
+  message: string;
+  metadata?: {
+    artist: string;
+    trackName: string;
+    bpm?: number;
+    timeSignature?: string;
+    artistImage?: string;
+  };
+}
+
+export type SectionType =
+  | 'intro' | 'verse' | 'chorus' | 'bridge'
+  | 'outro' | 'drop' | 'solo' | 'pre-chorus' | 'post-chorus';
+
+export interface SongSection {
+  type: SectionType;
+  startTime: number;
+  endTime: number;
+  label: string;
+  confidence?: number;
+}
+
+export interface AudioFile {
+  id: string;
+  name: string;
+  artist: string;
+  duration: number;
+  format: string;
+  path?: string;
+  structure?: SongSection[];
 }

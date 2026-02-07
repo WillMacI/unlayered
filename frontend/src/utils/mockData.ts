@@ -1,4 +1,4 @@
-import type { AudioFile, Stem, AIInsight, WaveformPeak } from '../types/audio';
+import type { AudioFile, Stem, AIInsight, WaveformPeak, SongSection } from '../types/audio';
 
 // Generate mock waveform data
 export const generateWaveformData = (length: number = 1000, complexity: number = 1): number[] => {
@@ -49,6 +49,7 @@ export const mockStems: Stem[] = [
     waveformData: generateWaveformData(1000, 0.8),
     hasAudio: true,
     order: 1,
+    audioUrl: '/test-audio/vocals.wav',
   },
   {
     id: 'stem-guitar',
@@ -63,6 +64,7 @@ export const mockStems: Stem[] = [
     waveformData: generateWaveformData(1000, 1.2),
     hasAudio: true,
     order: 2,
+    audioUrl: '/test-audio/guitar.wav',
   },
   {
     id: 'stem-drums',
@@ -77,6 +79,7 @@ export const mockStems: Stem[] = [
     waveformData: generateWaveformData(1000, 1.5),
     hasAudio: true,
     order: 3,
+    audioUrl: '/test-audio/drums.wav',
   },
   {
     id: 'stem-bass',
@@ -91,6 +94,7 @@ export const mockStems: Stem[] = [
     waveformData: generateWaveformData(1000, 0.6),
     hasAudio: true,
     order: 4,
+    audioUrl: '/test-audio/bass.wav',
   },
   {
     id: 'stem-other',
@@ -99,12 +103,13 @@ export const mockStems: Stem[] = [
     color: '#64748b',
     volume: 0.5,
     pan: 0,
-    isMuted: true,
+    isMuted: false,
     isSolo: false,
     isLocked: true,
     waveformData: generateWaveformData(1000, 0.3),
-    hasAudio: false,
+    hasAudio: true,
     order: 5,
+    audioUrl: '/test-audio/other.wav',
   },
 ];
 
@@ -118,3 +123,15 @@ export const mockAIInsight: AIInsight = {
 
 export const mockCombinedWaveform = generateWaveformData(1000, 2);
 export const mockPeaks = generatePeaks(245);
+
+// Mock song structure
+export const mockSongStructure: SongSection[] = [
+  { type: 'intro', startTime: 0, endTime: 15, label: 'Intro' },
+  { type: 'verse', startTime: 15, endTime: 45, label: 'Verse 1' },
+  { type: 'chorus', startTime: 45, endTime: 75, label: 'Chorus' },
+  { type: 'verse', startTime: 75, endTime: 105, label: 'Verse 2' },
+  { type: 'chorus', startTime: 105, endTime: 135, label: 'Chorus' },
+  { type: 'bridge', startTime: 135, endTime: 165, label: 'Bridge' },
+  { type: 'chorus', startTime: 165, endTime: 195, label: 'Chorus' },
+  { type: 'outro', startTime: 195, endTime: 245, label: 'Outro' },
+];

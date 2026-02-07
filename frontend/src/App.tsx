@@ -4,13 +4,18 @@ import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
 import { AIInsights } from './components/AIInsights';
 import { FileUpload } from './components/FileUpload';
-import type { AudioFile, Stem, PlaybackState } from './types/audio';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { LoadingScreen } from './components/LoadingScreen';
+import { useAudioEngine } from './hooks/useAudioEngine';
+import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
+import type { AudioFile, Stem, PlaybackState, ProcessingStatus } from './types/audio';
 import {
   mockAudioFile,
   mockStems,
   mockAIInsight,
   mockCombinedWaveform,
   mockPeaks,
+  mockSongStructure,
 } from './utils/mockData';
 
 function App() {
@@ -22,22 +27,53 @@ function App() {
     duration: mockAudioFile.duration,
     volume: 0.8,
   });
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [stemsLoaded, setStemsLoaded] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus | null>(null);
 
-  // Simulate playback
+  // Initialize audio engine
+  const {
+    loadStems: loadAudioStems,
+    play: playAudio,
+    pause: pauseAudio,
+    seek: seekAudio,
+    setVolume: setAudioVolume,
+    setPan: setAudioPan,
+    setMute: setAudioMute,
+    setMasterVolume,
+    currentTime: audioCurrentTime,
+    duration: audioDuration,
+    isLoading: audioLoading,
+    error: audioError,
+  } = useAudioEngine();
+
+  // Sync audio time to UI
   useEffect(() => {
-    if (!playbackState.isPlaying) return;
+    setPlaybackState((prev) => ({ ...prev, currentTime: audioCurrentTime }));
+  }, [audioCurrentTime]);
 
-    const interval = setInterval(() => {
-      setPlaybackState((prev) => {
-        if (prev.currentTime >= prev.duration) {
-          return { ...prev, isPlaying: false, currentTime: 0 };
-        }
-        return { ...prev, currentTime: prev.currentTime + 0.1 };
-      });
-    }, 100);
+  // Sync audio duration to UI
+  useEffect(() => {
+    if (audioDuration > 0) {
+      setPlaybackState((prev) => ({ ...prev, duration: audioDuration }));
+    }
+  }, [audioDuration]);
 
-    return () => clearInterval(interval);
-  }, [playbackState.isPlaying]);
+  // Load stems when audio file is set (only once)
+  useEffect(() => {
+    if (audioFile && !stemsLoaded && stems.length > 0) {
+      // Check if any stems have audio URLs (for real audio)
+      const stemsWithAudio = stems.filter((s) => s.audioUrl);
+      if (stemsWithAudio.length > 0) {
+        loadAudioStems(stems).then(() => {
+          setStemsLoaded(true);
+        });
+      }
+    }
+  }, [audioFile, stemsLoaded, loadAudioStems]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Note: stems is intentionally not in dependencies to prevent reloading on volume/mute changes
 
   // Dynamic track ordering: sort stems by activity
   const sortedStems = useMemo(() => {
@@ -58,18 +94,29 @@ function App() {
   }, [stems]);
 
   const handlePlayPause = () => {
+    if (playbackState.isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio();
+    }
     setPlaybackState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
   };
 
   const handleSeek = (time: number) => {
+    seekAudio(time);
     setPlaybackState((prev) => ({ ...prev, currentTime: time }));
   };
 
   const handleToggleMute = (stemId: string) => {
     setStems((prev) =>
-      prev.map((stem) =>
-        stem.id === stemId ? { ...stem, isMuted: !stem.isMuted } : stem
-      )
+      prev.map((stem) => {
+        if (stem.id === stemId) {
+          const newMuted = !stem.isMuted;
+          setAudioMute(stemId, newMuted);
+          return { ...stem, isMuted: newMuted };
+        }
+        return stem;
+      })
     );
   };
 
@@ -78,20 +125,41 @@ function App() {
       const clickedStem = prev.find((s) => s.id === stemId);
       if (!clickedStem) return prev;
 
-      // If toggling solo off
+      // If toggling solo off - restore original mute states
       if (clickedStem.isSolo) {
-        return prev.map((stem) => ({ ...stem, isSolo: false }));
+        const updated = prev.map((stem) => ({ ...stem, isSolo: false }));
+
+        // Restore original mute states in audio engine
+        updated.forEach((stem) => {
+          setAudioMute(stem.id, stem.isMuted);
+        });
+
+        return updated;
       }
 
-      // Toggle solo on
-      return prev.map((stem) => ({
+      // Toggle solo on - mute all except the soloed stem
+      const updated = prev.map((stem) => ({
         ...stem,
         isSolo: stem.id === stemId,
       }));
+
+      // Update audio engine: mute all except soloed stem
+      updated.forEach((stem) => {
+        if (stem.id === stemId) {
+          // Unmute the soloed stem
+          setAudioMute(stem.id, false);
+        } else {
+          // Mute all other stems
+          setAudioMute(stem.id, true);
+        }
+      });
+
+      return updated;
     });
   };
 
   const handleVolumeChange = (stemId: string, volume: number) => {
+    setAudioVolume(stemId, volume);
     setStems((prev) =>
       prev.map((stem) =>
         stem.id === stemId ? { ...stem, volume } : stem
@@ -100,6 +168,7 @@ function App() {
   };
 
   const handlePanChange = (stemId: string, pan: number) => {
+    setAudioPan(stemId, pan);
     setStems((prev) =>
       prev.map((stem) =>
         stem.id === stemId ? { ...stem, pan } : stem
@@ -122,6 +191,126 @@ function App() {
     console.log('Next track');
   };
 
+  // Keyboard shortcut helpers
+  const handleToggleMuteByIndex = (index: number) => {
+    const stem = sortedStems[index];
+    if (stem) handleToggleMute(stem.id);
+  };
+
+  const handleMuteAll = () => {
+    const allMuted = stems.every((s) => s.isMuted);
+    setStems((prev) =>
+      prev.map((s) => {
+        const newMuted = !allMuted;
+        setAudioMute(s.id, newMuted);
+        return { ...s, isMuted: newMuted };
+      })
+    );
+  };
+
+  const handleSoloActive = () => {
+    const activeStem = stems.find((s) => !s.isMuted);
+    if (activeStem) handleToggleSolo(activeStem.id);
+  };
+
+  const adjustMasterVolume = (delta: number) => {
+    setPlaybackState((prev) => {
+      const newVolume = Math.max(0, Math.min(1, prev.volume + delta));
+      setMasterVolume(newVolume);
+      return { ...prev, volume: newVolume };
+    });
+  };
+
+  // Define keyboard shortcuts
+  const shortcuts: KeyboardShortcut[] = [
+    { key: ' ', action: handlePlayPause, description: 'Play/Pause' },
+    {
+      key: 'ArrowLeft',
+      action: () => handleSeek(Math.max(0, playbackState.currentTime - 5)),
+      description: 'Seek -5s',
+    },
+    {
+      key: 'ArrowRight',
+      action: () => handleSeek(Math.min(playbackState.duration, playbackState.currentTime + 5)),
+      description: 'Seek +5s',
+    },
+    { key: '1', action: () => handleToggleMuteByIndex(0), description: 'Toggle vocals' },
+    { key: '2', action: () => handleToggleMuteByIndex(1), description: 'Toggle guitar' },
+    { key: '3', action: () => handleToggleMuteByIndex(2), description: 'Toggle drums' },
+    { key: '4', action: () => handleToggleMuteByIndex(3), description: 'Toggle bass' },
+    { key: '5', action: () => handleToggleMuteByIndex(4), description: 'Toggle other' },
+    { key: 'm', action: handleMuteAll, description: 'Mute all' },
+    { key: 's', action: handleSoloActive, description: 'Solo active stem' },
+    { key: '=', action: () => adjustMasterVolume(0.1), description: 'Volume up' },
+    { key: '-', action: () => adjustMasterVolume(-0.1), description: 'Volume down' },
+    {
+      key: '?',
+      shift: true,
+      action: () => setShowShortcutsModal((prev) => !prev),
+      description: 'Show shortcuts',
+    },
+  ];
+
+  // Enable keyboard shortcuts when audio file is loaded
+  useKeyboardShortcuts(shortcuts, { enabled: !!audioFile });
+
+  // Test function to simulate loading screen
+  const testLoadingScreen = () => {
+    setProcessingStatus({
+      stage: 'separating',
+      progress: 0,
+      message: 'Separating stems...',
+      metadata: {
+        artist: 'The Synthwave Collective',
+        trackName: 'Midnight Dreams',
+        bpm: 118,
+        timeSignature: '4/4',
+      },
+    });
+
+    // Simulate progress
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += 5;
+      setProcessingStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              progress: Math.min(progress, 100),
+              message:
+                progress < 30
+                  ? 'Analyzing audio...'
+                  : progress < 70
+                  ? 'Separating stems...'
+                  : 'Finalizing...',
+            }
+          : null
+      );
+
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          setProcessingStatus(null);
+        }, 1500);
+      }
+    }, 200);
+  };
+
+  // Show loading screen if processing
+  if (processingStatus) {
+    return (
+      <LoadingScreen
+        artist={processingStatus.metadata?.artist || 'Unknown Artist'}
+        trackName={processingStatus.metadata?.trackName || 'Unknown Track'}
+        bpm={processingStatus.metadata?.bpm}
+        timeSignature={processingStatus.metadata?.timeSignature}
+        artistImage={processingStatus.metadata?.artistImage}
+        progress={processingStatus.progress}
+        status={processingStatus.message}
+      />
+    );
+  }
+
   // If no audio file, show upload screen
   if (!audioFile) {
     return (
@@ -141,6 +330,37 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        shortcuts={shortcuts}
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+      />
+
+      {/* Error Display */}
+      {audioError && (
+        <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 mx-4 mt-4 rounded">
+          <p className="text-sm font-medium">Audio Error: {audioError}</p>
+        </div>
+      )}
+
+      {/* Loading Display */}
+      {audioLoading && (
+        <div className="bg-blue-500/10 border border-blue-500 text-blue-400 px-4 py-3 mx-4 mt-4 rounded">
+          <p className="text-sm font-medium">Loading audio files...</p>
+        </div>
+      )}
+
+      {/* Test Loading Screen Button */}
+      <div className="mx-4 mt-4">
+        <button
+          onClick={testLoadingScreen}
+          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          🎬 Test Cinematic Loading Screen
+        </button>
+      </div>
+
       {/* Header */}
       <PlaybackHeader
         audioFile={audioFile}
@@ -176,6 +396,7 @@ function App() {
               onSeek={handleSeek}
               height={100}
               isCombined
+              sections={mockSongStructure}
             />
             <div className="px-4 py-2 bg-slate-800/50 text-center text-xs text-slate-500">
               Click to traverse song
