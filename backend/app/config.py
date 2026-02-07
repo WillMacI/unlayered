@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Performance
     max_workers: int = 2  # Thread pool workers for concurrent separation jobs
 
+    # External API keys
+    genius_token: str | None = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

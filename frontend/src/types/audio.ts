@@ -1,4 +1,30 @@
-export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'other';
+export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'piano' | 'other';
+
+// Known backend stem names from Demucs models
+const KNOWN_BACKEND_STEMS = ['vocals', 'drums', 'bass', 'other', 'guitar', 'piano'] as const;
+export type BackendStemName = typeof KNOWN_BACKEND_STEMS[number];
+
+export function isKnownBackendStem(name: string): name is BackendStemName {
+  return (KNOWN_BACKEND_STEMS as readonly string[]).includes(name);
+}
+
+export function mapBackendStemToType(backendName: string): StemType {
+  switch (backendName) {
+    case 'vocals':
+      return 'vocals';
+    case 'drums':
+      return 'drums';
+    case 'bass':
+      return 'bass';
+    case 'guitar':
+      return 'guitar';
+    case 'piano':
+      return 'piano';
+    case 'other':
+    default:
+      return 'other';
+  }
+}
 
 export interface Stem {
   id: string;
@@ -36,6 +62,29 @@ export interface AIInsight {
   mood?: string;
   tempo?: number;
   key?: string;
+}
+
+export interface TimedLyricAnnotation {
+  line: string;
+  startTime: number | null;
+  endTime: number | null;
+  annotations: string[];
+  annotation: string;
+}
+
+export interface SongMetadata {
+  id: number;
+  title: string;
+  album_name?: string;
+  artists: string[];
+  artist_id?: number;
+  album_thumbnail?: string | null;
+  song_art_image_url?: string | null;
+  artist_image_url?: string | null;
+  primary_colour?: string | null;
+  secondary_colour?: string | null;
+  bio?: string;
+  annotation_count?: number;
 }
 
 export interface AudioLoadingState {

@@ -2,12 +2,16 @@
 System detection service for determining GPU/CPU capabilities
 and recommending appropriate Demucs models.
 """
-import torch
 import psutil
 from dataclasses import dataclass
 from typing import Optional
 import logging
 import threading
+
+try:
+    import torch
+except Exception:
+    torch = None
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +45,15 @@ class SystemDetector:
             SystemCapabilities object with detected info and recommendations
         """
         # Detect GPU
-        has_gpu = torch.cuda.is_available() and not force_cpu
+        if torch is None:
+            has_gpu = False
+        else:
+            has_gpu = torch.cuda.is_available() and not force_cpu
         gpu_name = None
         gpu_memory_gb = None
         device = "cpu"
 
-        if has_gpu:
+        if has_gpu and torch is not None:
             try:
                 gpu_name = torch.cuda.get_device_name(0)
                 gpu_memory_bytes = torch.cuda.get_device_properties(0).total_memory
@@ -223,6 +230,7 @@ def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False
             not force_cpu
             and _system_capabilities is not None
             and _system_capabilities.device == "cpu"
+            and torch is not None
             and torch.cuda.is_available()
         )
     )
@@ -237,6 +245,7 @@ def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False
                     not force_cpu
                     and _system_capabilities is not None
                     and _system_capabilities.device == "cpu"
+                    and torch is not None
                     and torch.cuda.is_available()
                 )
             ):

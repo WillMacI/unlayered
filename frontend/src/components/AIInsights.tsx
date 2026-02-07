@@ -3,9 +3,14 @@ import type { AIInsight } from '../types/audio';
 
 interface AIInsightsProps {
   insight: AIInsight | null;
+  title?: string | null;
+  artist?: string | null;
+  albumName?: string | null;
+  albumArtUrl?: string | null;
+  artistImageUrl?: string | null;
 }
 
-export const AIInsights = ({ insight }: AIInsightsProps) => {
+export const AIInsights = ({ insight, title, artist, albumName, albumArtUrl, artistImageUrl }: AIInsightsProps) => {
   const handleCopy = async () => {
     if (!insight) return;
 
@@ -63,21 +68,43 @@ export const AIInsights = ({ insight }: AIInsightsProps) => {
       }}
     >
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-        <h3 className="text-sm font-bold text-white">Track Insights</h3>
-        <button
-          onClick={handleCopy}
-          className="p-1.5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-          title="Copy to clipboard"
-        >
-          <Copy className="w-4 h-4" />
-        </button>
+      <div className="p-4 border-b flex items-center justify-between gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-800 flex-shrink-0">
+            {albumArtUrl ? (
+              <img src={albumArtUrl} alt="Album art" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-neutral-800" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-white truncate">{title || 'Track Insights'}</h3>
+            <div className="text-xs text-neutral-400 truncate">{artist || 'Unknown Artist'}</div>
+            {albumName && (
+              <div className="text-[10px] text-neutral-500 truncate">{albumName}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {artistImageUrl && (
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10">
+              <img src={artistImageUrl} alt={artist || 'Artist'} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+            title="Copy to clipboard"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Summary Section */}
         <div>
-          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Analysis</h4>
+          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">Analysis</h4>
           <p className="text-sm leading-relaxed text-neutral-300">
             {insight.summary}
           </p>

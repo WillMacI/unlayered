@@ -5,9 +5,14 @@ import type { AudioFile } from '../types/audio';
 interface SongIntroProps {
     audioFile: AudioFile;
     onStart: () => void;
+    albumArtUrl?: string | null;
+    artistImageUrl?: string | null;
+    artistName?: string | null;
+    isReady?: boolean;
+    statusText?: string | null;
 }
 
-export const SongIntro = ({ audioFile, onStart }: SongIntroProps) => {
+export const SongIntro = ({ audioFile, onStart, albumArtUrl, artistImageUrl, artistName, isReady = true, statusText }: SongIntroProps) => {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -29,25 +34,34 @@ export const SongIntro = ({ audioFile, onStart }: SongIntroProps) => {
                 <div className="w-64 h-64 md:w-96 md:h-96 rounded-2xl bg-neutral-900 shadow-2xl border border-white/5 flex items-center justify-center relative overflow-hidden group">
                     <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-                    {/* Simple Placeholder Art */}
-                    <div className="text-center space-y-4">
-                        <div className={`w-20 h-20 mx-auto rounded-full bg-white/5 flex items-center justify-center transition-all duration-1000 ${isLoading ? 'animate-pulse' : ''}`}>
-                            <Music2 className="w-8 h-8 text-neutral-500" />
+                    {albumArtUrl ? (
+                        <img src={albumArtUrl} alt="Album art" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="text-center space-y-4">
+                            <div className={`w-20 h-20 mx-auto rounded-full bg-white/5 flex items-center justify-center transition-all duration-1000 ${isLoading ? 'animate-pulse' : ''}`}>
+                                <Music2 className="w-8 h-8 text-neutral-500" />
+                            </div>
                         </div>
-                    </div>
+                    )}
+
+                    {artistImageUrl && (
+                        <div className="absolute bottom-4 right-4 w-14 h-14 rounded-full border border-white/20 overflow-hidden shadow-lg">
+                            <img src={artistImageUrl} alt={artistName || 'Artist'} className="w-full h-full object-cover" />
+                        </div>
+                    )}
                 </div>
 
                 {/* Info & Controls */}
                 <div className="flex-1 text-center md:text-left space-y-8">
                     <div className="space-y-2">
                         <h2 className="text-sm font-medium text-yellow-500/80 tracking-widest uppercase animate-pulse">
-                            {isLoading ? 'Analyzing Audio...' : 'Ready to Mix'}
+                            {isLoading ? 'Analyzing Audio...' : (statusText || (isReady ? 'Ready to Mix' : 'Awaiting Track Selection'))}
                         </h2>
                         <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tighter">
                             {audioFile.name ? audioFile.name.replace(/\.[^/.]+$/, "").replace(/_/g, " ") : "Neon Dreams"}
                         </h1>
                         <p className="text-xl text-neutral-400 font-light">
-                            Original Mix • 124 BPM • A Minor
+                            {artistName || audioFile.artist || 'Unknown Artist'} • Original Mix
                         </p>
                     </div>
 
@@ -59,7 +73,8 @@ export const SongIntro = ({ audioFile, onStart }: SongIntroProps) => {
                         {!isLoading ? (
                             <button
                                 onClick={onStart}
-                                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-full font-bold text-lg hover:bg-neutral-200 transition-all transform hover:scale-105 active:scale-95 duration-300"
+                                disabled={!isReady}
+                                className={`group relative inline-flex items-center gap-3 px-8 py-4 rounded-full font-bold text-lg transition-all transform duration-300 ${isReady ? 'bg-white text-black hover:bg-neutral-200 hover:scale-105 active:scale-95' : 'bg-white/30 text-white/60 cursor-not-allowed'}`}
                             >
                                 <Play className="w-5 h-5 fill-current" />
                                 <span>Enter Studio</span>

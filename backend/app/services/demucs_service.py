@@ -5,7 +5,12 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import soundfile as sf
-import demucs.api
+
+try:
+    import demucs.api as demucs_api
+except Exception as import_error:  # pragma: no cover - environment dependent
+    demucs_api = None
+    _demucs_import_error = import_error
 
 from app.config import settings
 
@@ -59,7 +64,13 @@ class DemucsService:
 
         # Initialize Demucs separator
         try:
-            self.separator = demucs.api.Separator(
+            if demucs_api is None:
+                raise RuntimeError(
+                    "Demucs is not installed. Install backend/requirements-demucs.txt "
+                    "with Python 3.10–3.13 to enable stem separation."
+                )
+
+            self.separator = demucs_api.Separator(
                 model=model,
                 device=device,
                 segment=segment,
