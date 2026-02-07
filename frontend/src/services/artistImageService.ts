@@ -30,11 +30,7 @@ async function fetchFromMusicBrainz(artistName: string): Promise<string | null> 
       artistName
     )}&fmt=json&limit=1`;
 
-    const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Unlayered/1.0 (https://github.com/unlayered)',
-      },
-    });
+    const searchResponse = await fetch(searchUrl);
 
     if (!searchResponse.ok) return null;
 
@@ -45,11 +41,7 @@ async function fetchFromMusicBrainz(artistName: string): Promise<string | null> 
 
     // Try to find an artist image via MusicBrainz URL relations
     const artistUrl = `https://musicbrainz.org/ws/2/artist/${artistId}?inc=url-rels&fmt=json`;
-    const artistResponse = await fetch(artistUrl, {
-      headers: {
-        'User-Agent': 'Unlayered/1.0 (https://github.com/unlayered)',
-      },
-    });
+    const artistResponse = await fetch(artistUrl);
 
     if (!artistResponse.ok) return null;
 

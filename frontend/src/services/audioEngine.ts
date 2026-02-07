@@ -34,7 +34,12 @@ export class AudioEngine {
 
     // Resume context if suspended (Chrome autoplay policy)
     if (this.context.state === 'suspended') {
-      await this.context.resume();
+      try {
+        await this.context.resume();
+      } catch (error) {
+        // Autoplay policies can block resume without a user gesture.
+        console.warn('Audio context resume blocked during init:', error);
+      }
     }
   }
 

@@ -25,6 +25,8 @@ function App() {
   const [showIntro, setShowIntro] = useState(false); // Intro screen state
   const [stems, setStems] = useState<Stem[]>([]);
   const stemsRef = useRef(stems);
+  const prevStemsRef = useRef<Stem[]>([]);
+  const prevAnySoloRef = useRef(false);
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
     currentTime: 0,
@@ -42,6 +44,27 @@ function App() {
   useEffect(() => {
     stemsRef.current = stems;
   }, [stems]);
+  useEffect(() => {
+    const prevStems = prevStemsRef.current;
+    if (prevStems.length === 0) {
+      prevStemsRef.current = stems;
+      return;
+    }
+
+    const prevMutedById = new Map(prevStems.map((stem) => [stem.id, stem.isMuted]));
+    const anySolo = stems.some((stem) => stem.isSolo);
+    const soloChanged = anySolo !== prevAnySoloRef.current;
+    stems.forEach((stem) => {
+      const prevMuted = prevMutedById.get(stem.id);
+      const targetMuted = anySolo ? !stem.isSolo : stem.isMuted;
+      if (prevMuted === undefined || prevMuted !== stem.isMuted || anySolo || soloChanged) {
+        setAudioMute(stem.id, targetMuted);
+      }
+    });
+
+    prevStemsRef.current = stems;
+    prevAnySoloRef.current = anySolo;
+  }, [stems, setAudioMute]);
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -199,15 +222,13 @@ function App() {
   }, [seekAudio]);
 
   const handleToggleMute = useCallback((stemId: string) => {
-    let nextStems: Stem[] = [];
     setStems((prev) => {
-      nextStems = prev.map((stem) =>
+      const nextStems = prev.map((stem) =>
         stem.id === stemId ? { ...stem, isMuted: !stem.isMuted } : stem
       );
       return nextStems;
     });
-    nextStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
-  }, [setAudioMute]);
+  }, []);
 
   const handleToggleSolo = useCallback((stemId: string) => {
     setStems((prev) => {
@@ -216,36 +237,16 @@ function App() {
 
       // If toggling solo off - restore original mute states
       if (clickedStem.isSolo) {
-        const updated = prev.map((stem) => ({ ...stem, isSolo: false }));
-
-        // Restore original mute states in audio engine
-        updated.forEach((stem) => {
-          setAudioMute(stem.id, stem.isMuted);
-        });
-
-        return updated;
+        return prev.map((stem) => ({ ...stem, isSolo: false }));
       }
 
       // Toggle solo on - mute all except the soloed stem
-      const updated = prev.map((stem) => ({
+      return prev.map((stem) => ({
         ...stem,
         isSolo: stem.id === stemId,
       }));
-
-      // Update audio engine: mute all except soloed stem
-      updated.forEach((stem) => {
-        if (stem.id === stemId) {
-          // Unmute the soloed stem
-          setAudioMute(stem.id, false);
-        } else {
-          // Mute all other stems
-          setAudioMute(stem.id, true);
-        }
-      });
-
-      return updated;
     });
-  }, [setAudioMute]);
+  }, []);
 
   const handleVolumeChange = (stemId: string, volume: number) => {
     setAudioVolume(stemId, volume);
@@ -274,6 +275,14 @@ function App() {
 
     // Simulate loading optimization or preparation
     setAudioFile(mockAudioFile);
+    setStemsLoaded(false);
+    setCombinedWaveform([]);
+    setPlaybackState((prev) => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      duration: mockAudioFile.duration,
+    }));
     // setStems(mockStems); // Keeping stems empty until "Enter Studio"? Or preload?
     // Let's preload them so main view is ready.
     setStems(mockStems);
@@ -291,18 +300,16 @@ function App() {
   }, [handleToggleMute]);
 
   const handleMuteAll = useCallback(() => {
-    let nextStems: Stem[] = [];
     setStems((prevStems) => {
       const allMuted = prevStems.every((s) => s.isMuted);
       const newMuted = !allMuted;
-      nextStems = prevStems.map((stem) => ({
+      const nextStems = prevStems.map((stem) => ({
         ...stem,
         isMuted: newMuted,
       }));
       return nextStems;
     });
-    nextStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
-  }, [setAudioMute]);
+  }, []);
 
   const handleSoloActive = useCallback(() => {
     setStems((prev) => {
@@ -313,23 +320,17 @@ function App() {
         if (!clickedStem) return prev;
 
         if (clickedStem.isSolo) {
-          const updated = prev.map((stem) => ({ ...stem, isSolo: false }));
-          updated.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
-          return updated;
+          return prev.map((stem) => ({ ...stem, isSolo: false }));
         }
 
-        const updated = prev.map((stem) => ({
+        return prev.map((stem) => ({
           ...stem,
           isSolo: stem.id === activeStem.id,
         }));
-        updated.forEach((stem) => {
-          setAudioMute(stem.id, stem.id !== activeStem.id);
-        });
-        return updated;
       }
       return prev;
     });
-  }, [setAudioMute]);
+  }, []);
 
   const adjustMasterVolume = useCallback((delta: number) => {
     const currentVolume = playbackStateRef.current.volume;
