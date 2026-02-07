@@ -214,6 +214,16 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     engineRef.current.setMasterVolume(volume);
   }, []);
 
+  const getWaveformData = useCallback(
+    (stemId: string, samples?: number) => engineRef.current?.getWaveformData(stemId, samples) || [],
+    []
+  );
+
+  const getStereoWaveformData = useCallback(
+    (stemId: string, samples?: number) => engineRef.current?.getStereoWaveformData(stemId, samples) || { left: [], right: [] },
+    []
+  );
+
   return {
     loadStems,
     play,
@@ -223,8 +233,8 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     setPan,
     setMute,
     setMasterVolume,
-    getWaveformData: (stemId: string, samples?: number) => engineRef.current?.getWaveformData(stemId, samples) || [],
-    getStereoWaveformData: (stemId: string, samples?: number) => engineRef.current?.getStereoWaveformData(stemId, samples) || { left: [], right: [] },
+    getWaveformData,
+    getStereoWaveformData,
     currentTime,
     duration,
     isPlaying,

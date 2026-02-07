@@ -234,7 +234,9 @@ export class AudioEngine {
 
     // Resume if was playing
     if (wasPlaying) {
-      this.play();
+      void this.play().catch((error) => {
+        console.error('Error resuming playback after seek:', error);
+      });
     }
   }
 
