@@ -38,16 +38,6 @@ const STEM_CONFIG: Record<string, { color: string; label: string; order: number 
   piano: { color: '#D4AF37', label: 'Piano', order: 6 },
 };
 
-// Stem color and label configuration
-const STEM_CONFIG: Record<string, { color: string; label: string; order: number }> = {
-  vocals: { color: '#D4AF37', label: 'Vocals', order: 1 },
-  guitar: { color: '#D4AF37', label: 'Guitar', order: 2 },
-  drums: { color: '#D4AF37', label: 'Drums', order: 3 },
-  bass: { color: '#D4AF37', label: 'Bass', order: 4 },
-  other: { color: '#D4AF37', label: 'Other', order: 5 },
-  piano: { color: '#D4AF37', label: 'Piano', order: 6 },
-};
-
 function App() {
   // const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile); // Start with mock
   const [audioFile, setAudioFile] = useState<AudioFile | null>(null); // Start with Upload Screen
