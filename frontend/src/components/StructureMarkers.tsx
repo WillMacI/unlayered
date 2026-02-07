@@ -13,7 +13,6 @@ interface StructureMarkersProps {
   containerWidth: number;
 }
 
-// Color mapping for section types
 // Color mapping for section types (Grayscale / Subtle)
 const SECTION_COLORS: Record<string, string> = {
   intro: 'bg-white/5 border-white/10',

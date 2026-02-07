@@ -24,6 +24,7 @@ function App() {
   const [audioFile, setAudioFile] = useState<AudioFile | null>(null); // Start with Upload Screen
   const [showIntro, setShowIntro] = useState(false); // Intro screen state
   const [stems, setStems] = useState<Stem[]>([]);
+  const stemsRef = useRef(stems);
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
     currentTime: 0,
@@ -38,6 +39,9 @@ function App() {
   useEffect(() => {
     playbackStateRef.current = playbackState;
   }, [playbackState]);
+  useEffect(() => {
+    stemsRef.current = stems;
+  }, [stems]);
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -195,16 +199,14 @@ function App() {
   }, [seekAudio]);
 
   const handleToggleMute = useCallback((stemId: string) => {
-    setStems((prev) =>
-      prev.map((stem) => {
-        if (stem.id === stemId) {
-          const newMuted = !stem.isMuted;
-          setAudioMute(stemId, newMuted);
-          return { ...stem, isMuted: newMuted };
-        }
-        return stem;
-      })
-    );
+    const updatedStems = stemsRef.current.map((stem) => {
+      if (stem.id === stemId) {
+        return { ...stem, isMuted: !stem.isMuted };
+      }
+      return stem;
+    });
+    updatedStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
+    setStems(updatedStems);
   }, [setAudioMute]);
 
   const handleToggleSolo = useCallback((stemId: string) => {
@@ -285,14 +287,14 @@ function App() {
   }, [sortedStems, handleToggleMute]);
 
   const handleMuteAll = useCallback(() => {
-    setStems((prev) => {
-      const allMuted = prev.every((s) => s.isMuted);
-      return prev.map((s) => {
-        const newMuted = !allMuted;
-        setAudioMute(s.id, newMuted);
-        return { ...s, isMuted: newMuted };
-      });
-    });
+    const allMuted = stemsRef.current.every((s) => s.isMuted);
+    const newMuted = !allMuted;
+    const updatedStems = stemsRef.current.map((stem) => ({
+      ...stem,
+      isMuted: newMuted,
+    }));
+    updatedStems.forEach((stem) => setAudioMute(stem.id, stem.isMuted));
+    setStems(updatedStems);
   }, [setAudioMute]);
 
   const handleSoloActive = useCallback(() => {

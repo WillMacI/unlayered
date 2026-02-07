@@ -56,6 +56,8 @@ export const PlaybackHeader = ({
           <button
             onClick={onPrevious}
             className="text-neutral-400 hover:text-white transition-colors"
+            aria-label="Previous track"
+            title="Previous track"
           >
             <SkipBack className="w-5 h-5 fill-current" />
           </button>
@@ -63,6 +65,8 @@ export const PlaybackHeader = ({
           <button
             onClick={onPlayPause}
             className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 transition-transform shadow-md"
+            aria-label={playbackState.isPlaying ? 'Pause' : 'Play'}
+            title={playbackState.isPlaying ? 'Pause' : 'Play'}
           >
             {playbackState.isPlaying ? (
               <Pause className="w-5 h-5 text-black fill-current" />
@@ -74,6 +78,8 @@ export const PlaybackHeader = ({
           <button
             onClick={onNext}
             className="text-neutral-400 hover:text-white transition-colors"
+            aria-label="Next track"
+            title="Next track"
           >
             <SkipForward className="w-5 h-5 fill-current" />
           </button>
@@ -88,6 +94,8 @@ export const PlaybackHeader = ({
             onClick={onZoomOut}
             disabled={zoomLevel <= 1}
             className="p-1.5 hover:bg-white/10 rounded-md disabled:opacity-30 transition-colors"
+            aria-label="Zoom out"
+            title="Zoom out"
           >
             <ZoomOut className="w-4 h-4 text-neutral-300" />
           </button>
@@ -98,6 +106,8 @@ export const PlaybackHeader = ({
             onClick={onZoomIn}
             disabled={zoomLevel >= 10}
             className="p-1.5 hover:bg-white/10 rounded-md disabled:opacity-30 transition-colors"
+            aria-label="Zoom in"
+            title="Zoom in"
           >
             <ZoomIn className="w-4 h-4 text-neutral-300" />
           </button>
@@ -118,6 +128,7 @@ export const PlaybackHeader = ({
           onClick={onToggleSidebar}
           className={`p-2 rounded-lg transition-colors ${showSidebar ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-neutral-400 hover:text-white'}`}
           title={showSidebar ? "Hide Sidebar" : "Show Sidebar"}
+          aria-label={showSidebar ? "Hide Sidebar" : "Show Sidebar"}
         >
           {showSidebar ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
         </button>
@@ -127,6 +138,7 @@ export const PlaybackHeader = ({
           disabled
           aria-disabled="true"
           title="Repeat not available yet"
+          aria-label="Repeat (not available)"
         >
           <Repeat className="w-4 h-4" />
         </button>
