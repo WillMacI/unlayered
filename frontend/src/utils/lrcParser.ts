@@ -19,13 +19,15 @@ export function parseLRC(lrcContent: string): { text: string; startTime: number;
 
         if (!text) continue; // Skip empty lines
 
-        // Parse the timestamp
-        const minutes = parseInt(lastMatch[1], 10);
-        const seconds = parseInt(lastMatch[2], 10);
-        const centiseconds = parseInt(lastMatch[3], 10);
-        const startTime = minutes * 60 + seconds + centiseconds / 100;
+        // Parse each timestamp on the line
+        for (const match of matches) {
+            const minutes = parseInt(match[1], 10);
+            const seconds = parseInt(match[2], 10);
+            const centiseconds = parseInt(match[3], 10);
+            const startTime = minutes * 60 + seconds + centiseconds / 100;
 
-        lyrics.push({ text, startTime });
+            lyrics.push({ text, startTime });
+        }
     }
 
     // Sort by start time

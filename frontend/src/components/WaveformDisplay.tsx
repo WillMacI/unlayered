@@ -48,9 +48,14 @@ export const WaveformDisplay = ({
       (peak) => Math.abs(peak.time - currentTime) < 0.5
     );
     if (nearbyPeak) {
-      setFlashingPeak(nearbyPeak.time);
+      const rafId = requestAnimationFrame(() => {
+        setFlashingPeak(nearbyPeak.time);
+      });
       const timer = setTimeout(() => setFlashingPeak(null), 300);
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(rafId);
+        clearTimeout(timer);
+      };
     }
   }, [currentTime, peaks]);
 

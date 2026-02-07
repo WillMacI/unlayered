@@ -62,6 +62,7 @@ async function fetchFromMusicBrainz(artistName: string): Promise<string | null> 
  * Fetch artist image from Spotify (requires API key)
  */
 async function fetchFromSpotify(_artistName: string): Promise<string | null> {
+  void _artistName;
   // Note: Requires Spotify API credentials to be configured
   // For now, this is a placeholder that returns null
   // In production, implement OAuth flow and search

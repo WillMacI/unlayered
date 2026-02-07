@@ -57,6 +57,7 @@ function App() {
     setMasterVolume,
     currentTime: audioCurrentTime,
     duration: audioDuration,
+    isPlaying: audioIsPlaying,
     isLoading: audioLoading,
     error: audioError,
     getStereoWaveformData,
@@ -73,6 +74,11 @@ function App() {
       setPlaybackState((prev) => ({ ...prev, duration: audioDuration }));
     }
   }, [audioDuration]);
+
+  // Sync playing state to UI (also handles end-of-track updates)
+  useEffect(() => {
+    setPlaybackState((prev) => ({ ...prev, isPlaying: audioIsPlaying }));
+  }, [audioIsPlaying]);
 
   // Load stems when audio file is set (only once)
   useEffect(() => {
@@ -137,10 +143,7 @@ function App() {
         });
       }
     }
-  }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // Note: stems is intentionally not in dependencies to prevent reloading on volume/mute changes
+  }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData, stems]);
 
   // Dynamic track ordering: sort stems by activity
   const sortedStems = useMemo(() => {
@@ -166,7 +169,6 @@ function App() {
     } else {
       playAudio();
     }
-    setPlaybackState((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
   }, [playbackState.isPlaying, pauseAudio, playAudio]);
 
   const handleSeek = useCallback((time: number) => {
@@ -415,7 +417,7 @@ function App() {
         }
       }
     }
-  }, [playbackState.currentTime, playbackState.duration, zoomLevel]);
+  }, [playbackState, zoomLevel]);
 
   // Reset user scroll flag on play start
   useEffect(() => {

@@ -112,7 +112,7 @@ export class AudioEngine {
         try {
           stem.source.stop();
           stem.source.disconnect();
-        } catch (e) {
+        } catch {
           // Ignore errors if already stopped
         }
         stem.source = null;
@@ -195,7 +195,7 @@ export class AudioEngine {
           try {
             stem.source.stop();
             stem.source.disconnect();
-          } catch (error) {
+          } catch {
             // Ignore
           }
           stem.source = null;
@@ -298,13 +298,22 @@ export class AudioEngine {
     }
 
     const channelData = stem.buffer.getChannelData(0); // Use first channel
-    // Guard against divide by zero when samples exceeds buffer length
-    const step = Math.max(1, Math.floor(channelData.length / samples));
+    if (samples <= 0) return [];
+    if (channelData.length === 0) return new Array(samples).fill(0);
+    // Use fractional step so we don't read past the buffer for short data
+    const step = channelData.length / samples;
     const waveform: number[] = [];
 
     for (let i = 0; i < samples; i++) {
-      const start = i * step;
-      const end = start + step;
+      const start = Math.floor(i * step);
+      if (start >= channelData.length) {
+        waveform.push(0);
+        continue;
+      }
+      let end = Math.floor((i + 1) * step);
+      if (end <= start) end = start + 1;
+      if (end > channelData.length) end = channelData.length;
+      const segmentLength = end - start;
       let sum = 0;
 
       // Calculate RMS for this chunk
@@ -312,7 +321,7 @@ export class AudioEngine {
         sum += channelData[j] * channelData[j];
       }
 
-      const rms = Math.sqrt(sum / step);
+      const rms = Math.sqrt(sum / segmentLength);
       waveform.push(rms);
     }
 
@@ -334,20 +343,29 @@ export class AudioEngine {
       // If buffer is mono, use channel 0 for both
       const idx = Math.min(channelIndex, stem.buffer!.numberOfChannels - 1);
       const channelData = stem.buffer!.getChannelData(idx);
-      // Guard against divide by zero when samples exceeds buffer length
-      const step = Math.max(1, Math.floor(channelData.length / samples));
+      if (samples <= 0) return [];
+      if (channelData.length === 0) return new Array(samples).fill(0);
+      // Use fractional step so we don't read past the buffer for short data
+      const step = channelData.length / samples;
       const waveform: number[] = [];
 
       for (let i = 0; i < samples; i++) {
-        const start = i * step;
-        const end = start + step;
+        const start = Math.floor(i * step);
+        if (start >= channelData.length) {
+          waveform.push(0);
+          continue;
+        }
+        let end = Math.floor((i + 1) * step);
+        if (end <= start) end = start + 1;
+        if (end > channelData.length) end = channelData.length;
+        const segmentLength = end - start;
         let sum = 0;
 
         for (let j = start; j < end; j++) {
           sum += channelData[j] * channelData[j];
         }
 
-        waveform.push(Math.sqrt(sum / step));
+        waveform.push(Math.sqrt(sum / segmentLength));
       }
 
       const max = Math.max(...waveform) || 1;
@@ -371,7 +389,7 @@ export class AudioEngine {
           try {
             stem.source.stop();
             stem.source.disconnect();
-          } catch (e) {
+          } catch {
             // Ignore
           }
           stem.source = null;
@@ -384,7 +402,7 @@ export class AudioEngine {
       try {
         stem.gainNode.disconnect();
         stem.panNode.disconnect();
-      } catch (e) {
+      } catch {
         // Ignore if already disconnected
       }
     });
@@ -394,7 +412,7 @@ export class AudioEngine {
     if (this.masterGain) {
       try {
         this.masterGain.disconnect();
-      } catch (e) {
+      } catch {
         // Ignore
       }
     }

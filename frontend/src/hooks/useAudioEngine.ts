@@ -20,6 +20,7 @@ interface UseAudioEngineReturn {
   getStereoWaveformData: (stemId: string, samples?: number) => { left: number[], right: number[] };
   currentTime: number;
   duration: number;
+  isPlaying: boolean;
   isLoading: boolean;
   error: string | null;
 }
@@ -68,6 +69,8 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
         // Continue updating if playing
         if (engineRef.current.getIsPlaying()) {
           animationFrameRef.current = requestAnimationFrame(updateTime);
+        } else if (isPlaying) {
+          setIsPlaying(false);
         }
       }
     };
@@ -111,7 +114,8 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
 
       // Apply initial stem settings
       stems.forEach((stem) => {
-        engineRef.current!.setVolume(stem.id, stem.isMuted ? 0 : stem.volume);
+        engineRef.current!.setVolume(stem.id, stem.volume);
+        engineRef.current!.setMute(stem.id, stem.isMuted);
         engineRef.current!.setPan(stem.id, stem.pan);
       });
 
@@ -220,6 +224,7 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     getStereoWaveformData: (stemId: string, samples?: number) => engineRef.current?.getStereoWaveformData(stemId, samples) || { left: [], right: [] },
     currentTime,
     duration,
+    isPlaying,
     isLoading,
     error,
   };
