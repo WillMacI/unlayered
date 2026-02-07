@@ -53,7 +53,7 @@ unlayered/
 - Node.js 20+ and npm
 - **Rust** (for Tauri desktop app)
 
-**Backend Developer (Evan) needs:**
+**Backend Developer needs:**
 - Python 3.10+
 - *Note: You don't need Node.js or Rust to work on the backend!*
 
@@ -83,7 +83,7 @@ Verify Rust installation:
 cargo --version  # Should show: cargo 1.93.0 or higher
 ```
 
-**Step 2b: Backend Setup (Evan starts here)**
+**Step 2b: Backend Setup**
 
 ```bash
 cd backend
@@ -95,7 +95,7 @@ cd ..
 
 ### Development
 
-**For Backend Developer (Evan):**
+**For Backend Developer**
 You only need to run the Python backend:
 ```bash
 cd backend
@@ -143,8 +143,6 @@ Then try again. Note: First Tauri build takes 5-10 minutes.
 The first `npm run tauri:dev` compiles Rust dependencies (5-10 minutes). Subsequent runs are much faster (10-30 seconds).
 
 **Backend developer doesn't need Rust**
-
-Evan (backend dev): You can ignore all Tauri/Rust stuff. Just run the Python backend!
 
 ### Building
 
