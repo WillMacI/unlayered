@@ -45,12 +45,12 @@ export function useSeparation(): UseSeparationReturn {
 
   // Fetch capabilities on mount
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
     const loadCapabilities = async () => {
       try {
-        const caps = await fetchCapabilities();
-        if (!cancelled) {
+        const caps = await fetchCapabilities(controller.signal);
+        if (!controller.signal.aborted) {
           setState((prev) => ({
             ...prev,
             capabilities: caps,
@@ -58,7 +58,9 @@ export function useSeparation(): UseSeparationReturn {
           }));
         }
       } catch (err) {
-        console.warn('Failed to fetch system capabilities:', err);
+        if (!controller.signal.aborted) {
+          console.warn('Failed to fetch system capabilities:', err);
+        }
         // Non-critical error, use defaults
       }
     };
@@ -66,7 +68,7 @@ export function useSeparation(): UseSeparationReturn {
     loadCapabilities();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -89,12 +91,23 @@ export function useSeparation(): UseSeparationReturn {
     }
   }, []);
 
-  const pollJobStatus = useCallback((jobId: string) => {
+  const pollJobStatus = useCallback((jobId: string, signal: AbortSignal) => {
     stopPolling();
 
     const poll = async () => {
+      // Check if aborted before making request
+      if (signal.aborted) {
+        stopPolling();
+        return;
+      }
+
       try {
-        const status = await getJobStatus(jobId);
+        const status = await getJobStatus(jobId, signal);
+
+        // Check again after async operation
+        if (signal.aborted) {
+          return;
+        }
 
         setState((prev) => ({
           ...prev,
@@ -109,7 +122,8 @@ export function useSeparation(): UseSeparationReturn {
           stopPolling();
           // Fetch the result
           try {
-            const result = await getJobResult(jobId);
+            const result = await getJobResult(jobId, signal);
+            if (signal.aborted) return;
             setState((prev) => ({
               ...prev,
               stage: 'completed',
@@ -117,6 +131,7 @@ export function useSeparation(): UseSeparationReturn {
               result,
             }));
           } catch (err) {
+            if (signal.aborted) return;
             setState((prev) => ({
               ...prev,
               stage: 'failed',
@@ -132,6 +147,10 @@ export function useSeparation(): UseSeparationReturn {
           }));
         }
       } catch (err) {
+        // Ignore abort errors, log others
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
         // Network error during polling - continue polling
         console.warn('Polling error:', err);
       }
@@ -145,6 +164,16 @@ export function useSeparation(): UseSeparationReturn {
   }, [stopPolling]);
 
   const startSeparation = useCallback(async (file: File, quality: number) => {
+    // Stop any existing polling and abort previous requests
+    stopPolling();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     // Reset state
     setState((prev) => ({
       ...prev,
@@ -155,14 +184,11 @@ export function useSeparation(): UseSeparationReturn {
       result: null,
     }));
 
-    // Create new abort controller
-    abortControllerRef.current = new AbortController();
-
     try {
       // Upload file
-      const response = await uploadFile(file, quality);
+      const response = await uploadFile(file, quality, controller.signal);
 
-      if (abortControllerRef.current?.signal.aborted) {
+      if (controller.signal.aborted) {
         return;
       }
 
@@ -173,9 +199,14 @@ export function useSeparation(): UseSeparationReturn {
       }));
 
       // Start polling for status
-      pollJobStatus(response.job_id);
+      pollJobStatus(response.job_id, controller.signal);
     } catch (err) {
-      if (abortControllerRef.current?.signal.aborted) {
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      // Ignore abort errors
+      if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
 
@@ -185,7 +216,7 @@ export function useSeparation(): UseSeparationReturn {
         error: err instanceof Error ? err.message : 'Upload failed',
       }));
     }
-  }, [pollJobStatus]);
+  }, [pollJobStatus, stopPolling]);
 
   const reset = useCallback(() => {
     stopPolling();

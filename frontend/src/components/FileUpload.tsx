@@ -1,5 +1,5 @@
 import { Upload, FileAudio, Cpu, Zap } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { QUALITY_PRESETS, type SystemCapabilities } from '../services/apiClient';
@@ -20,6 +20,7 @@ export const FileUpload = ({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState(recommendedQuality);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (disabled) return;
@@ -66,6 +67,10 @@ export const FileUpload = ({
       if (file) {
         processFile(file);
       }
+      // Reset input so the same file can be selected again
+      if (e.target) {
+        e.target.value = '';
+      }
     },
     [disabled, processFile]
   );
@@ -108,11 +113,8 @@ export const FileUpload = ({
         processFile(file);
       }
     } catch {
-      // Tauri not available or error - fall back to input click
-      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (input) {
-        input.click();
-      }
+      // Tauri not available or error - fall back to input click using ref
+      fileInputRef.current?.click();
     }
   }, [disabled, processFile]);
 
@@ -197,7 +199,7 @@ export const FileUpload = ({
           {capabilities && (
             <div className="w-full max-w-md px-4 py-3 rounded-lg bg-white/5 border border-neutral-700">
               <div className="flex items-center gap-2 text-sm">
-                {capabilities.gpu_available ? (
+                {capabilities.has_gpu ? (
                   <>
                     <Zap className="w-4 h-4 text-green-400" />
                     <span className="text-green-400">GPU Acceleration</span>
@@ -277,22 +279,23 @@ export const FileUpload = ({
           </p>
         </div>
 
-        <label className={disabled ? 'cursor-not-allowed' : 'cursor-pointer'}>
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={handleFileInput}
-            className="hidden"
-            disabled={disabled}
-          />
-          <button
-            onClick={handleBrowseClick}
-            disabled={disabled}
-            className="px-6 py-3 bg-[#D4AF37] hover:bg-[#b5952f] disabled:bg-neutral-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors inline-block"
-          >
-            Browse Files
-          </button>
-        </label>
+        {/* Hidden file input with ref */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          onChange={handleFileInput}
+          className="hidden"
+          disabled={disabled}
+        />
+
+        <button
+          onClick={handleBrowseClick}
+          disabled={disabled}
+          className="px-6 py-3 bg-[#D4AF37] hover:bg-[#b5952f] disabled:bg-neutral-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
+        >
+          Browse Files
+        </button>
       </div>
     </div>
   );

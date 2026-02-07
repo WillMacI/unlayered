@@ -13,7 +13,7 @@ import { useAudioEngine } from './hooks/useAudioEngine';
 import { useSeparation } from './hooks/useSeparation';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import { getStemDownloadUrl } from './services/apiClient';
-import type { AudioFile, Stem, PlaybackState, BackendStemName } from './types/audio';
+import type { AudioFile, Stem, PlaybackState } from './types/audio';
 import { mapBackendStemToType } from './types/audio';
 import {
   mockAudioFile,
@@ -149,8 +149,8 @@ function App() {
       const newStems: Stem[] = Object.entries(separationResult.tracks)
         .filter(([_stemName, path]) => path !== null) // Only include stems that exist
         .map(([stemName, _path]) => {
-          const backendName = stemName as BackendStemName;
-          const stemType = mapBackendStemToType(backendName);
+          // mapBackendStemToType safely handles unknown stem names by returning 'other'
+          const stemType = mapBackendStemToType(stemName);
           const config = STEM_CONFIG[stemName] || STEM_CONFIG.other;
 
           return {
@@ -174,11 +174,13 @@ function App() {
       newStems.sort((a, b) => a.order - b.order);
 
       // Create audio file metadata
+      // Note: Backend doesn't provide audio duration, so we use a default
+      // The actual duration will be set once stems are loaded
       const newAudioFile: AudioFile = {
         id: separationResult.job_id,
         name: 'Separated Track',
         artist: 'Unknown Artist',
-        duration: separationResult.metadata?.duration || 180,
+        duration: 180, // Will be updated when audio loads
         format: 'WAV',
       };
 

@@ -1,9 +1,14 @@
-export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'other';
+export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'piano' | 'other';
 
-// Backend stem names from Demucs
-export type BackendStemName = 'vocals' | 'drums' | 'bass' | 'other' | 'guitar' | 'piano';
+// Known backend stem names from Demucs models
+const KNOWN_BACKEND_STEMS = ['vocals', 'drums', 'bass', 'other', 'guitar', 'piano'] as const;
+export type BackendStemName = typeof KNOWN_BACKEND_STEMS[number];
 
-export function mapBackendStemToType(backendName: BackendStemName): StemType {
+export function isKnownBackendStem(name: string): name is BackendStemName {
+  return KNOWN_BACKEND_STEMS.includes(name as BackendStemName);
+}
+
+export function mapBackendStemToType(backendName: string): StemType {
   switch (backendName) {
     case 'vocals':
       return 'vocals';
@@ -14,6 +19,7 @@ export function mapBackendStemToType(backendName: BackendStemName): StemType {
     case 'guitar':
       return 'guitar';
     case 'piano':
+      return 'piano';
     case 'other':
     default:
       return 'other';
