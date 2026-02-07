@@ -96,6 +96,21 @@ async def upload_audio(
         logger.error(f"Error saving uploaded file: {e}")
         raise HTTPException(status_code=500, detail="Error saving uploaded file")
 
+    # Validate actual file content (not just MIME type which can be spoofed)
+    try:
+        import soundfile as sf
+        # Try to read audio metadata to verify it's a valid audio file
+        info = sf.info(str(input_path))
+        logger.info(f"Validated audio file: {info.samplerate}Hz, {info.channels} channels, {info.duration:.1f}s")
+    except Exception as e:
+        # Invalid audio file - clean up and reject
+        logger.warning(f"Invalid audio file for job {job_id}: {e}")
+        input_path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid audio file. Could not read audio data: {str(e)}"
+        )
+
     # Get system capabilities
     capabilities = get_system_capabilities(force_cpu=settings.force_cpu)
 

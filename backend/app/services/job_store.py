@@ -88,7 +88,7 @@ class JobStore:
         model_used: Optional[str] = None,
         started_at: Optional[datetime] = None,
         completed_at: Optional[datetime] = None,
-        stems: Optional[Dict[str, str]] = None,
+        stems: Optional[Dict[str, Optional[str]]] = None,
         error_message: Optional[str] = None,
         processing_time: Optional[float] = None
     ) -> Optional[Job]:

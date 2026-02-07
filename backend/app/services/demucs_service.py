@@ -2,21 +2,26 @@
 from pathlib import Path
 from typing import Dict, Optional
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import soundfile as sf
 import demucs.api
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Shared thread pool executor for async operations
-_executor: Optional[asyncio.ThreadPoolExecutor] = None
+_executor: Optional[ThreadPoolExecutor] = None
 
 
-def get_executor() -> asyncio.ThreadPoolExecutor:
+def get_executor() -> ThreadPoolExecutor:
     """Get or create the shared thread pool executor."""
     global _executor
     if _executor is None:
-        _executor = asyncio.ThreadPoolExecutor(max_workers=2)
+        # Use configured max_workers for thread pool
+        max_workers = getattr(settings, "max_workers", 2)
+        _executor = ThreadPoolExecutor(max_workers=max_workers)
     return _executor
 
 
