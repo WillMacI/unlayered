@@ -15,6 +15,7 @@ export interface Stem {
   order: number;
   audioUrl?: string;        // URL to audio file
   audioBuffer?: ArrayBuffer; // Loaded audio data
+  lyrics?: { text: string; startTime: number; endTime: number }[]; // Synced lyrics
 }
 
 export interface PlaybackState {

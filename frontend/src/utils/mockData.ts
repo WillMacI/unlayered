@@ -1,4 +1,31 @@
 import type { AudioFile, Stem, AIInsight, WaveformPeak, SongSection } from '../types/audio';
+import { parseLRC } from './lrcParser';
+
+// LRC content for Chrome Cowgirl
+const chromeCowgirlLRC = `[00:13.28]Wear her on my neck, keep her close to my chest like home
+[00:19.08]She lucky like a bet, she won't let me forget where I'm from
+[00:24.54]People come and go, she rolls
+[00:27.21]Even through the backroads on my worst night
+[00:31.18]She won't ever leave me 'lone
+[00:35.82]She's my chrome cowgirl
+[00:41.82]She's my chrome cowgirl
+[00:47.50]The way she fit in my hands
+[00:49.72]Forever young and made of lightnin'
+[00:53.74]She's my chrome cowgirl
+[01:01.00]Father died in Houston, could've sworn my heart was closed
+[01:06.94]Now there ain't no secrets, she don't have the key to know
+[01:11.66]She isn't one to fight, she doesn't roll her eye
+[01:14.88]When I'm out all night, doesn't lose her mind
+[01:18.88]She won't ever leave me cold
+[01:23.54]She's my chrome cowgirl
+[01:29.50]She's my chrome cowgirl
+[01:35.23]The way she fit in my hands
+[01:37.44]Forever young and made of lightnin'
+[01:41.46]She's my chrome cowgirl
+[01:47.38]She's my chrome
+[01:59.32]She's my chrome cowgirl
+[02:11.14]She's my chrome cowgirl
+[02:17.16]She's my chrome cowgirl`;
 
 // Generate mock waveform data
 export const generateWaveformData = (length: number = 1000, complexity: number = 1): number[] => {
@@ -59,6 +86,7 @@ export const mockStems: Stem[] = [
     hasAudio: true,
     order: 1,
     audioUrl: '/test-audio/vocals.wav',
+    lyrics: parseLRC(chromeCowgirlLRC)
   },
   {
     id: 'stem-guitar',

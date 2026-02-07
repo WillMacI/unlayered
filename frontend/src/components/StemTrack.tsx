@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
+import { LyricsOverlay } from './LyricsOverlay';
 
 interface StemTrackProps {
   stem: Stem;
@@ -88,6 +89,9 @@ export const StemTrack = ({
 
       {/* 2. Waveform (Center - Flex Grow) */}
       <div className="flex-1 min-w-0 relative h-20 flex items-center">
+        {stem.lyrics && (
+          <LyricsOverlay lyrics={stem.lyrics} currentTime={currentTime} />
+        )}
         <WaveformDisplay
           waveformData={viewMode === 'stereo' && typeof stem.waveformData === 'object' && !Array.isArray(stem.waveformData) ? stem.waveformData : (Array.isArray(stem.waveformData) ? stem.waveformData : stem.waveformData.left)} // Fallback to left channel if mono requested but data is stereo, or just pass data if it matches
           currentTime={currentTime}
