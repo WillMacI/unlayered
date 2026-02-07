@@ -2,6 +2,25 @@
 
 Python FastAPI backend for audio track separation using Demucs.
 
+## For Evan (Backend Developer)
+
+👋 **Hey Evan!** This is your workspace. You **only** need Python installed - no Node.js, no Rust, no Tauri!
+
+**What you need:**
+- Python 3.10+
+- That's it!
+
+**What you DON'T need:**
+- ❌ Node.js (that's for the frontend team)
+- ❌ Rust (that's for Tauri desktop app)
+- ❌ npm or any JavaScript tools
+
+**To get started:**
+1. Follow the setup below
+2. Run `python run.py`
+3. Visit http://localhost:8000/docs
+4. Start building the audio processing pipeline!
+
 ## Setup
 
 1. Create a virtual environment:

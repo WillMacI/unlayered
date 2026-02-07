@@ -45,49 +45,106 @@ unlayered/
 ## Quick Start
 
 ### Prerequisites
+
+**Everyone needs:**
+- Git
+
+**Frontend & Fullstack Developers need:**
 - Node.js 20+ and npm
+- **Rust** (for Tauri desktop app)
+
+**Backend Developer (Evan) needs:**
 - Python 3.10+
-- Rust (for Tauri)
+- *Note: You don't need Node.js or Rust to work on the backend!*
 
 ### Installation
 
-1. Clone the repository:
+**Step 1: Clone the repository**
 ```bash
 git clone https://github.com/yourusername/unlayered.git
 cd unlayered
 ```
 
-2. Install dependencies:
-```bash
-# Install frontend dependencies
-npm install
+**Step 2a: Frontend/Fullstack Setup**
 
-# Set up Python backend
+Install Node.js dependencies:
+```bash
+npm install
+```
+
+Install Rust (required for Tauri):
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -y
+source "$HOME/.cargo/env"  # Load Rust into your shell
+```
+
+Verify Rust installation:
+```bash
+cargo --version  # Should show: cargo 1.93.0 or higher
+```
+
+**Step 2b: Backend Setup (Evan starts here)**
+
+```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cd ..
 ```
 
 ### Development
 
-Run both frontend and backend:
+**For Backend Developer (Evan):**
+You only need to run the Python backend:
 ```bash
-npm run dev:all
+cd backend
+source venv/bin/activate  # Activate virtual environment
+python run.py
 ```
+API will be at: http://localhost:8000
+API docs at: http://localhost:8000/docs
 
-Or run them separately:
+**For Frontend Developer:**
+Quick web development (fast, no Rust compilation):
+```bash
+cd frontend
+npm run dev
+```
+Open http://localhost:5173 in your browser
 
-**Frontend (Tauri + React):**
+Full desktop app (slower first run):
 ```bash
 npm run tauri:dev
 ```
 
-**Backend (FastAPI):**
+**For Fullstack Developer:**
+Run both services together:
 ```bash
-npm run dev:backend
-# or: cd backend && python run.py
+npm run dev:all
 ```
+
+Or run them separately as shown above.
+
+### Troubleshooting
+
+**Error: "cargo: command not found" or "No such file or directory" when running `npm run tauri:dev`**
+
+This means Rust is not installed. Install it:
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -y
+source "$HOME/.cargo/env"
+```
+
+Then try again. Note: First Tauri build takes 5-10 minutes.
+
+**First Tauri run is slow?**
+
+The first `npm run tauri:dev` compiles Rust dependencies (5-10 minutes). Subsequent runs are much faster (10-30 seconds).
+
+**Backend developer doesn't need Rust**
+
+Evan (backend dev): You can ignore all Tauri/Rust stuff. Just run the Python backend!
 
 ### Building
 
