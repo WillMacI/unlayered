@@ -131,14 +131,8 @@ async def upload_audio(
     # Get system capabilities
     capabilities = get_system_capabilities(force_cpu=settings.force_cpu)
 
-    # Check if system is at capacity (enforce max_concurrent_jobs)
+    # Get job store for capacity checks and enqueue
     job_store = get_job_store()
-    active_jobs = job_store.count(JobStatus.PROCESSING) + job_store.count(JobStatus.QUEUED)
-    if active_jobs >= capabilities.max_concurrent_jobs:
-        raise HTTPException(
-            status_code=429,
-            detail=f"System at capacity. Currently queued/processing {active_jobs} job(s). Please try again later."
-        )
 
     # Determine which model to use
     if model is None:
@@ -164,8 +158,19 @@ async def upload_audio(
         output_dir=str(settings.output_dir / job_id)
     )
 
-    # Add to job store (already retrieved above for capacity check)
-    job_store.add(job)
+    # Add to job store with an atomic capacity check
+    added, active_jobs = job_store.try_add_with_capacity(job, capabilities.max_concurrent_jobs)
+    if not added:
+        # Clean up saved upload when at capacity
+        try:
+            shutil.rmtree(job_upload_dir, ignore_errors=True)
+        except Exception as e:
+            logger.warning(f"Failed to clean up upload dir for rejected job {job_id}: {e}")
+
+        raise HTTPException(
+            status_code=429,
+            detail=f"System at capacity. Currently queued/processing {active_jobs} job(s). Please try again later."
+        )
 
     # Queue background processing
     background_tasks.add_task(

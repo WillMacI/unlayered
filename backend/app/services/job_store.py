@@ -75,6 +75,25 @@ class JobStore:
             self._jobs[job.job_id] = job
             logger.info(f"Job {job.job_id} added to store")
 
+    def try_add_with_capacity(self, job: Job, max_concurrent_jobs: int) -> tuple[bool, int]:
+        """
+        Atomically check capacity (queued + processing) and add a job if allowed.
+
+        Returns:
+            (added, active_count_before_add)
+        """
+        with self._lock:
+            active_count = sum(
+                1 for j in self._jobs.values()
+                if j.status in {JobStatus.QUEUED, JobStatus.PROCESSING}
+            )
+            if active_count >= max_concurrent_jobs:
+                return False, active_count
+
+            self._jobs[job.job_id] = job
+            logger.info(f"Job {job.job_id} added to store")
+            return True, active_count
+
     def get(self, job_id: str) -> Optional[Job]:
         """Get a job by ID."""
         with self._lock:

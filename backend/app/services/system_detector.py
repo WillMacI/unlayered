@@ -165,6 +165,10 @@ class SystemDetector:
         Returns:
             Tuple of (is_valid, error_message)
         """
+        allowed_models = {"htdemucs", "htdemucs_ft", "htdemucs_6s"}
+        if model not in allowed_models:
+            return False, f"Unsupported model '{model}'. Supported models: {', '.join(sorted(allowed_models))}"
+
         # Check if 6-stem model is requested on insufficient hardware
         if model == "htdemucs_6s":
             if not capabilities.has_gpu:
