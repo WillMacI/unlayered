@@ -480,7 +480,10 @@ export class AudioEngine {
     }
 
     if (this.context) {
-      this.context.close();
+      const ctx = this.context;
+      void ctx.close().catch(() => {
+        // Ignore close errors to avoid unhandled promise rejections during cleanup
+      });
     }
 
     this.context = null;
