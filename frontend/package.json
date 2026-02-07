@@ -42,6 +42,7 @@
     "vite": "^7.2.4"
   },
   "optionalDependencies": {
-    "@rollup/rollup-darwin-arm64": "^4.57.1"
+    "@rollup/rollup-darwin-arm64": "^4.57.1",
+    "@tauri-apps/cli-darwin-arm64": "^2.10.0"
   }
 }
