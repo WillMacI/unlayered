@@ -9,8 +9,8 @@ export default {
       colors: {
         'brand': {
           'gold': '#D4AF37', // Metallic Gold
-          'dark': '#0f0f0f',
-          'surface': '#1a1a1a',
+          'dark': '#1c1c1e', // Apple Dark
+          'surface': '#2c2c2e', // Apple Surface
         }
       }
     },

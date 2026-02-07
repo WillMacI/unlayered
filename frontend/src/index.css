@@ -9,37 +9,38 @@
 
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #16181d;
+  background-color: var(--bg-primary);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Professional "Audition" color palette */
-  --bg-primary: #0a0a0a;
-  /* Deep black */
-  --bg-secondary: #141414;
-  /* Dark gray surface */
-  --bg-tertiary: #1f1f1f;
-  /* Lighter surface */
-  --border-subtle: #262626;
-  /* Subtle border */
-  --text-primary: #e5e5e5;
-  /* High contrast text */
-  --text-secondary: #a3a3a3;
-  /* Muted text */
-  --text-tertiary: #525252;
-  /* Dark text */
-  --accent-gold: #D4AF37;
-  /* Metallic Gold */
-  --accent-cyan: #D4AF37;
-  /* Replaced with Metallic Gold for legacy support */
+  /* Apple Music Dark Theme Palette */
+  --bg-primary: #1c1c1e;
+  /* Apple Dark Background */
+  --bg-secondary: #2c2c2e;
+  /* Apple Secondary/Card Background */
+  --bg-tertiary: #3a3a3c;
+  /* Elevated Surface */
 
-  /* Smooth transitions */
-  --transition-fast: 100ms ease-in-out;
-  --transition-medium: 150ms ease-in-out;
-  --transition-slow: 200ms ease-out;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  /* Subtle separator */
+  --border-focus: rgba(255, 255, 255, 0.2);
+
+  --text-primary: #ffffff;
+  --text-secondary: rgba(235, 235, 245, 0.6);
+  /* Apple Secondary Text */
+  --text-tertiary: rgba(235, 235, 245, 0.3);
+
+  --accent-gold: #D4AF37;
+  /* Brand Color */
+  --accent-gold-dim: rgba(212, 175, 55, 0.5);
+
+  /* Apple-style transitions */
+  --transition-fast: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-medium: 300ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-slow: 500ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 body {

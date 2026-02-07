@@ -5,10 +5,10 @@ import { StemTrack } from './components/StemTrack';
 import { AIInsights } from './components/AIInsights';
 import { FileUpload } from './components/FileUpload';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
-import { LoadingScreen } from './components/LoadingScreen';
+
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
-import type { AudioFile, Stem, PlaybackState, ProcessingStatus } from './types/audio';
+import type { AudioFile, Stem, PlaybackState } from './types/audio';
 import {
   mockAudioFile,
   mockStems,
@@ -29,8 +29,12 @@ function App() {
   });
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [stemsLoaded, setStemsLoaded] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState<ProcessingStatus | null>(null);
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [showSidebar, setShowSidebar] = useState(true);
+
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
 
   // Initialize audio engine
   const {
@@ -293,62 +297,8 @@ function App() {
   // Enable keyboard shortcuts when audio file is loaded
   useKeyboardShortcuts(shortcuts, { enabled: !!audioFile });
 
-  // Test function to simulate loading screen
-  const testLoadingScreen = () => {
-    setProcessingStatus({
-      stage: 'separating',
-      progress: 0,
-      message: 'Separating stems...',
-      metadata: {
-        artist: 'The Synthwave Collective',
-        trackName: 'Midnight Dreams',
-        bpm: 118,
-        timeSignature: '4/4',
-      },
-    });
-
-    // Simulate progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 5;
-      setProcessingStatus((prev) =>
-        prev
-          ? {
-            ...prev,
-            progress: Math.min(progress, 100),
-            message:
-              progress < 30
-                ? 'Analyzing audio...'
-                : progress < 70
-                  ? 'Separating stems...'
-                  : 'Finalizing...',
-          }
-          : null
-      );
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setProcessingStatus(null);
-        }, 1500);
-      }
-    }, 200);
-  };
-
   // Show loading screen if processing
-  if (processingStatus) {
-    return (
-      <LoadingScreen
-        artist={processingStatus.metadata?.artist || 'Unknown Artist'}
-        trackName={processingStatus.metadata?.trackName || 'Unknown Track'}
-        bpm={processingStatus.metadata?.bpm}
-        timeSignature={processingStatus.metadata?.timeSignature}
-        artistImage={processingStatus.metadata?.artistImage}
-        progress={processingStatus.progress}
-        status={processingStatus.message}
-      />
-    );
-  }
+  /* Removed demo loading screen logic */
 
   // If no audio file, show upload screen
   if (!audioFile) {
@@ -368,7 +318,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen flex flex-col font-sans text-white select-none" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal
         shortcuts={shortcuts}
@@ -378,105 +328,104 @@ function App() {
 
       {/* Error Display */}
       {audioError && (
-        <div className="bg-white/5 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded">
+        <div className="bg-red-900/20 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
           <p className="text-sm font-medium">Audio Error: {audioError}</p>
         </div>
       )}
 
       {/* Loading Display */}
       {audioLoading && (
-        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded">
+        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
           <p className="text-sm font-medium">Loading audio files...</p>
         </div>
       )}
-
-      {/* Test Loading Screen Button */}
-      <div className="absolute top-20 right-6 z-50">
-        <button
-          onClick={testLoadingScreen}
-          className="px-3 py-1.5 rounded-md text-[10px] font-medium shadow-pro hover:shadow-pro-lg transition-all duration-150 hover:scale-105"
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid var(--accent-gold)',
-            color: 'var(--accent-gold)',
-          }}
-          title="Test cinematic loading animation"
-        >
-          🎬 Loading Demo
-        </button>
-      </div>
 
       {/* Header */}
       <PlaybackHeader
         audioFile={audioFile}
         playbackState={playbackState}
         onPlayPause={handlePlayPause}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
+        onPrevious={() => { }}
+        onNext={() => { }}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        zoomLevel={zoomLevel}
+        showSidebar={showSidebar}
+        onToggleSidebar={() => setShowSidebar(!showSidebar)}
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-6 px-6 py-4">
-        {/* Left: Waveforms */}
-        <div className="flex-1 space-y-3">
-          {/* Combined Waveform */}
-          <div className="rounded-md overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-            <div className="px-4 py-2.5 border-b" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--text-primary)', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                  Combined / Stereo Mix
-                </h3>
-                <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                  Master waveform
-                </span>
+      <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden">
+        {/* Left: Waveforms - Main "Page" feel */}
+        <div className="flex-1 flex flex-col space-y-6">
+
+          {/* Combined Waveform Card */}
+          <div className="rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-neutral-800 flex items-center justify-center text-neutral-500">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white tracking-tight">
+                    Stereo / Master
+                  </h3>
+                  <p className="text-xs text-neutral-500">Original Mix</p>
+                </div>
               </div>
             </div>
-            <WaveformDisplay
-              waveformData={combinedWaveform}
-              currentTime={playbackState.currentTime}
-              duration={playbackState.duration}
-              peaks={mockPeaks}
-              color="#D4AF37"
-              label="Original Mix"
-              onSeek={handleSeek}
-              height={100}
-              isCombined
-              sections={mockSongStructure}
-            />
-            <div className="px-4 py-1.5 text-center text-[10px]" style={{ backgroundColor: 'rgba(0,0,0,0.15)', color: 'var(--text-tertiary)' }}>
-              Click waveform to seek
+            <div className="py-2">
+              <WaveformDisplay
+                waveformData={combinedWaveform}
+                currentTime={playbackState.currentTime}
+                duration={playbackState.duration}
+                peaks={mockPeaks}
+                color="#D4AF37" // Metallic Gold
+                label=""
+                onSeek={handleSeek}
+                height={120}
+                isCombined
+                sections={mockSongStructure}
+                zoom={zoomLevel}
+              />
             </div>
           </div>
 
-          {/* Individual Stems */}
-          <div className="space-y-[1px]">
-            {sortedStems.map((stem) => (
-              <StemTrack
-                key={stem.id}
-                stem={stem}
-                currentTime={playbackState.currentTime}
-                duration={playbackState.duration}
-                onToggleMute={handleToggleMute}
-                onToggleSolo={handleToggleSolo}
-                onVolumeChange={handleVolumeChange}
-                onPanChange={handlePanChange}
-                onSeek={handleSeek}
-              />
-            ))}
+          {/* Individual Stems List */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-bold px-1" style={{ color: 'var(--text-primary)' }}>Stems</h3>
+            <div className="space-y-px rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              {sortedStems.map((stem) => (
+                <StemTrack
+                  key={stem.id}
+                  stem={stem}
+                  currentTime={playbackState.currentTime}
+                  duration={playbackState.duration}
+                  onToggleMute={handleToggleMute}
+                  onToggleSolo={handleToggleSolo}
+                  onVolumeChange={handleVolumeChange}
+                  onPanChange={handlePanChange}
+                  onSeek={handleSeek}
+                  zoom={zoomLevel}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Info Note */}
-          <div className="rounded-md p-3 mt-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)' }}>
-            <p className="text-[10px] text-center leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Tip:</span> Press <kbd className="px-1.5 py-0.5 rounded bg-black/40 font-mono text-[9px]">Shift+?</kbd> for keyboard shortcuts
+          <div className="px-2 mt-4">
+            <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+              Press <kbd className="px-1.5 py-0.5 rounded-md bg-white/10 font-medium text-[10px]">Shift+?</kbd> for keyboard shortcuts
             </p>
           </div>
         </div>
 
-        {/* Right: AI Insights */}
-        <div className="w-80">
-          <AIInsights insight={mockAIInsight} />
-        </div>
+        {/* Right: AI Insights (Sidebar) */}
+        {showSidebar && (
+          <div className="w-[340px] flex-shrink-0 transition-all duration-300">
+            <AIInsights insight={mockAIInsight} />
+          </div>
+        )}
       </div>
     </div>
   );

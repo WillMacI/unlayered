@@ -12,6 +12,7 @@ interface WaveformDisplayProps {
   onSeek?: (time: number) => void;
   height?: number;
   isCombined?: boolean;
+  zoom?: number;
   sections?: SongSection[];
 }
 
@@ -26,14 +27,17 @@ export const WaveformDisplay = ({
   height = 80,
   isCombined = false,
   sections,
+  zoom = 1,
 }: WaveformDisplayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [flashingPeak, setFlashingPeak] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
   // Check if we're near a peak and flash
   useEffect(() => {
+    if (!peaks) return;
     const nearbyPeak = peaks.find(
       (peak) => Math.abs(peak.time - currentTime) < 0.5
     );
@@ -43,6 +47,21 @@ export const WaveformDisplay = ({
       return () => clearTimeout(timer);
     }
   }, [currentTime, peaks]);
+
+  // Handle auto-scroll when playing
+  useEffect(() => {
+    if (scrollContainerRef.current && isCombined && zoom > 1) {
+      const scrollContainer = scrollContainerRef.current;
+      const progress = currentTime / duration;
+      const scrollLeft = (scrollContainer.scrollWidth * progress) - (scrollContainer.clientWidth / 2);
+
+      // Only scroll if we aren't manually interacting (simple check)
+      // For now, just centering the playhead
+      if (Math.abs(scrollContainer.scrollLeft - scrollLeft) > 100) {
+        // scrollContainer.scrollLeft = scrollLeft; // Too jittery for now, disabled auto-scroll
+      }
+    }
+  }, [currentTime, duration, isCombined, zoom]);
 
   // Draw waveform
   useEffect(() => {
@@ -55,6 +74,7 @@ export const WaveformDisplay = ({
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
 
+    // Set actual canvas size (resolution)
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
 
@@ -128,9 +148,9 @@ export const WaveformDisplay = ({
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-  }, [waveformData, currentTime, duration, color]);
+  }, [waveformData, currentTime, duration, color, zoom]); // Re-draw when zoom changes
 
-  // Update container width on mount and resize
+  // Update container width on mount, resize, and zoom
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
@@ -141,7 +161,7 @@ export const WaveformDisplay = ({
     updateWidth();
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
-  }, []);
+  }, [zoom]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onSeek || !canvasRef.current) return;
@@ -171,63 +191,73 @@ export const WaveformDisplay = ({
   const timelineMarkers = generateTimelineMarkers();
 
   return (
-    <div ref={containerRef} className="relative group">
-      {/* Timeline Ruler (for combined waveform only) */}
-      {isCombined && (
-        <div className="absolute top-0 left-0 right-0 h-6 flex items-end px-2 pointer-events-none z-20">
-          {timelineMarkers.map((marker, idx) => (
-            <div
-              key={idx}
-              className="absolute flex flex-col items-center"
-              style={{ left: `${marker.position}%`, transform: 'translateX(-50%)' }}
-            >
-              <span className="text-[9px] font-mono-time" style={{ color: '#606265' }}>
-                {marker.label}
-              </span>
-              <div className="w-px h-1.5 bg-gray-600/50" />
-            </div>
-          ))}
-        </div>
-      )}
+    <div
+      ref={scrollContainerRef}
+      className={`relative group ${zoom > 1 ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}
+      style={{ width: '100%' }}
+    >
+      <div
+        ref={containerRef}
+        className="relative"
+        style={{ width: `${zoom * 100}%`, minWidth: '100%' }}
+      >
+        {/* Timeline Ruler (for combined waveform only) */}
+        {isCombined && (
+          <div className="absolute top-0 left-0 right-0 h-6 flex items-end px-2 pointer-events-none z-20">
+            {timelineMarkers.map((marker, idx) => (
+              <div
+                key={idx}
+                className="absolute flex flex-col items-center"
+                style={{ left: `${marker.position}%`, transform: 'translateX(-50%)' }}
+              >
+                <span className="text-[9px] font-mono-time" style={{ color: '#606265' }}>
+                  {marker.label}
+                </span>
+                <div className="w-px h-1.5 bg-gray-600/50" />
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* Label */}
-      {label && (
-        <div className="absolute left-2 top-2 px-2 py-1 rounded text-[11px] font-medium z-10"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)', color, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
-          {label}
-        </div>
-      )}
+        {/* Label */}
+        {label && (
+          <div className="absolute left-2 top-2 px-2 py-1 rounded text-[11px] font-medium z-10 sticky left-2"
+            style={{ backgroundColor: 'rgba(0,0,0,0.6)', color, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+            {label}
+          </div>
+        )}
 
-      {/* Flash indicator */}
-      {flashingPeak !== null && (
-        <div className="absolute inset-0 bg-[#D4AF37]/20 animate-pulse pointer-events-none" />
-      )}
+        {/* Flash indicator */}
+        {flashingPeak !== null && (
+          <div className="absolute inset-0 bg-[#D4AF37]/20 animate-pulse pointer-events-none" />
+        )}
 
-      {/* Waveform Canvas */}
-      <canvas
-        ref={canvasRef}
-        className={`w-full waveform-enter ${onSeek ? 'cursor-pointer hover:opacity-90' : ''}`}
-        style={{ height: `${height}px`, backgroundColor: 'rgba(0,0,0,0.2)', transition: 'opacity 150ms ease-in-out' }}
-        onClick={handleCanvasClick}
-      />
-
-      {/* Structure Markers */}
-      {sections && sections.length > 0 && (
-        <StructureMarkers
-          sections={sections}
-          duration={duration}
-          currentTime={currentTime}
-          onSectionClick={(section) => onSeek?.(section.startTime)}
-          containerWidth={containerWidth}
+        {/* Waveform Canvas */}
+        <canvas
+          ref={canvasRef}
+          className={`w-full h-full waveform-enter ${onSeek ? 'cursor-pointer hover:opacity-90' : ''}`}
+          style={{ height: `${height}px`, backgroundColor: 'rgba(0,0,0,0.2)', transition: 'opacity 150ms ease-in-out' }}
+          onClick={handleCanvasClick}
         />
-      )}
 
-      {/* Hover instruction */}
-      {onSeek && (
-        <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-          <span className="text-sm text-white">Click to traverse song</span>
-        </div>
-      )}
+        {/* Structure Markers */}
+        {sections && sections.length > 0 && (
+          <StructureMarkers
+            sections={sections}
+            duration={duration}
+            currentTime={currentTime}
+            onSectionClick={(section) => onSeek?.(section.startTime)}
+            containerWidth={containerWidth}
+          />
+        )}
+
+        {/* Hover instruction */}
+        {onSeek && (
+          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none sticky left-0 right-0">
+            <span className="text-sm text-white sticky left-1/2 -translate-x-1/2">Click to traverse song</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

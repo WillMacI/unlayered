@@ -15,136 +15,97 @@ export const AIInsights = ({ insight }: AIInsightsProps) => {
 
   if (!insight) {
     return (
-      <div
-        className="rounded-md p-6 h-full"
+      <div className="h-full rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-4"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border-subtle)',
-          borderLeft: '3px solid #a855f7',
         }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-4 h-4" style={{ color: 'var(--accent-gold)' }} />
-          <h3
-            className="text-sm font-semibold tracking-wide uppercase"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            AI Insights
-          </h3>
+        <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-500">
+          <Sparkles className="w-6 h-6" />
         </div>
-        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-          Upload a song to see AI-generated insights...
-        </p>
+        <div>
+          <h3 className="text-sm font-semibold text-white">No Insights Yet</h3>
+          <p className="text-xs text-neutral-500 mt-1 max-w-[200px] mx-auto">
+            Upload an audio file to generate AI analysis of the track.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="rounded-md p-6 h-full flex flex-col"
+    <div className="h-full rounded-xl overflow-hidden flex flex-col"
       style={{
         backgroundColor: 'var(--bg-secondary)',
         border: '1px solid var(--border-subtle)',
-        borderLeft: '3px solid var(--accent-gold)',
       }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-gray-400" />
-          <h3
-            className="text-sm font-semibold tracking-wide uppercase"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            AI Insights
-          </h3>
-        </div>
+      {/* Header */}
+      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+        <h3 className="text-sm font-bold text-white">Track Insights</h3>
         <button
           onClick={handleCopy}
-          className="p-1.5 rounded hover:bg-black/30 transition-all duration-150 hover:scale-105"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="p-1.5 rounded-md hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
           title="Copy to clipboard"
         >
-          <Copy className="w-3.5 h-3.5" />
+          <Copy className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Summary */}
-      <div className="mb-6 pb-6" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <p
-          className="text-[13px] leading-relaxed italic"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          "{insight.summary}"
-        </p>
-        <p className="text-[9px] mt-2" style={{ color: 'var(--text-tertiary)' }}>
-          AI-generated analysis ✨
-        </p>
-      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Summary Section */}
+        <div>
+          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Analysis</h4>
+          <p className="text-sm leading-relaxed text-neutral-300">
+            {insight.summary}
+          </p>
+        </div>
 
-      {/* Metadata */}
-      <div className="space-y-4 flex-1">
-        {insight.genre && (
-          <div className="flex items-start gap-3">
-            <Music className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                Genre
-              </p>
-              <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {insight.genre}
-              </p>
+        <div className="h-px w-full bg-white/5" />
+
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {insight.genre && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Music className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Genre</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.genre}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.mood && (
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                Mood
-              </p>
-              <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {insight.mood}
-              </p>
+          {insight.mood && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Mood</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.mood}</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.tempo && (
-          <div className="flex items-start gap-3">
-            <Gauge className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                Tempo
-              </p>
-              <p className="text-[11px] font-medium mt-0.5 font-mono-time" style={{ color: 'var(--text-primary)' }}>
-                {insight.tempo} BPM
-              </p>
+          {insight.tempo && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Gauge className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Tempo</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.tempo} <span className="text-[10px] text-neutral-500">BPM</span></p>
             </div>
-          </div>
-        )}
+          )}
 
-        {insight.key && (
-          <div className="flex items-start gap-3">
-            <Key className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                Key
-              </p>
-              <p className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {insight.key}
-              </p>
+          {insight.key && (
+            <div className="p-3 rounded-lg bg-white/5 space-y-1">
+              <div className="flex items-center gap-2 text-neutral-400">
+                <Key className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-medium uppercase">Key</span>
+              </div>
+              <p className="text-sm font-medium text-white">{insight.key}</p>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer note */}
-      <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-        <p className="text-[10px] text-center leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-          Powered by AI audio analysis
-        </p>
+          )}
+        </div>
       </div>
     </div>
   );
