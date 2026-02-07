@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Square, Repeat } from 'lucide-react';
 import type { AudioFile, PlaybackState } from '../types/audio';
 import { formatTime } from '../utils/formatTime';
 
@@ -17,36 +17,76 @@ export const PlaybackHeader = ({
   onPrevious,
   onNext,
 }: PlaybackHeaderProps) => {
+  const handleStop = () => {
+    // Stop and return to beginning (will be implemented)
+    console.log('Stop clicked');
+  };
+
+  const handleLoop = () => {
+    // Toggle loop mode (will be implemented)
+    console.log('Loop clicked');
+  };
+
   return (
-    <div className="bg-slate-800 border-b border-slate-700 px-6 py-3 flex items-center justify-between">
+    <div
+      className="border-b px-6 py-3 flex items-center justify-between"
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        borderColor: 'var(--border-subtle)',
+      }}
+    >
       {/* Playback Controls */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <button
           onClick={onPrevious}
-          className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-          title="Previous"
+          className="p-2 rounded hover:bg-black/30 transition-all duration-150 hover:scale-105"
+          style={{ color: 'var(--text-secondary)' }}
+          title="Previous Section"
         >
-          <SkipBack className="w-5 h-5 text-slate-300" />
+          <SkipBack className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={handleStop}
+          className="p-2 rounded hover:bg-black/30 transition-all duration-150 hover:scale-105"
+          style={{ color: 'var(--text-secondary)' }}
+          title="Stop (Return to Start)"
+        >
+          <Square className="w-4 h-4" />
         </button>
 
         <button
           onClick={onPlayPause}
-          className="p-3 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-          title={playbackState.isPlaying ? 'Pause' : 'Play'}
+          className="p-3 rounded-md shadow-pro hover:shadow-pro-lg transition-all duration-150 hover:scale-105"
+          style={{
+            backgroundColor: 'var(--accent-gold)',
+            color: '#000',
+          }}
+          title={playbackState.isPlaying ? 'Pause (Space)' : 'Play (Space)'}
         >
           {playbackState.isPlaying ? (
-            <Pause className="w-6 h-6 text-white" fill="white" />
+            <Pause className="w-5 h-5" fill="currentColor" />
           ) : (
-            <Play className="w-6 h-6 text-white" fill="white" />
+            <Play className="w-5 h-5" fill="currentColor" />
           )}
         </button>
 
         <button
-          onClick={onNext}
-          className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-          title="Next"
+          onClick={handleLoop}
+          className="p-2 rounded hover:bg-black/30 transition-all duration-150 hover:scale-105"
+          style={{ color: 'var(--text-secondary)' }}
+          title="Toggle Loop"
         >
-          <SkipForward className="w-5 h-5 text-slate-300" />
+          <Repeat className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={onNext}
+          className="p-2 rounded hover:bg-black/30 transition-all duration-150 hover:scale-105"
+          style={{ color: 'var(--text-secondary)' }}
+          title="Next Section"
+        >
+          <SkipForward className="w-4 h-4" />
         </button>
       </div>
 
@@ -54,19 +94,50 @@ export const PlaybackHeader = ({
       <div className="flex-1 text-center px-8">
         {audioFile ? (
           <div>
-            <h2 className="text-lg font-semibold text-white">
+            <h2
+              className="text-sm font-semibold tracking-wide"
+              style={{
+                color: 'var(--text-primary)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+              }}
+            >
               {audioFile.name}
             </h2>
-            <p className="text-sm text-slate-400">{audioFile.artist}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              {audioFile.artist}
+            </p>
           </div>
         ) : (
-          <p className="text-slate-500">No audio file loaded</p>
+          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+            No audio file loaded
+          </p>
         )}
       </div>
 
       {/* Time Display */}
-      <div className="bg-green-500 text-slate-900 px-4 py-2 rounded-lg font-mono font-bold text-lg min-w-[120px] text-center">
-        {formatTime(playbackState.currentTime)}
+      <div className="flex items-center gap-2">
+        <div
+          className="px-4 py-2 rounded-md font-mono-time text-sm font-semibold shadow-pro"
+          style={{
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            color: 'var(--accent-gold)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          {formatTime(playbackState.currentTime)}
+        </div>
+        <span className="text-[11px] font-mono-time" style={{ color: 'var(--text-tertiary)' }}>
+          /
+        </span>
+        <div
+          className="px-4 py-2 rounded-md font-mono-time text-sm font-medium"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.3)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {formatTime(playbackState.duration)}
+        </div>
       </div>
     </div>
   );

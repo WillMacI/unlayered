@@ -63,7 +63,7 @@ export const WaveformDisplay = ({
     // Clear canvas
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // Draw waveform
+    // Draw waveform with gradient fill
     const barWidth = rect.width / waveformData.length;
     const halfHeight = rect.height / 2;
 
@@ -75,22 +75,58 @@ export const WaveformDisplay = ({
       const progress = currentTime / duration;
       const isPlayed = index / waveformData.length < progress;
 
-      ctx.fillStyle = isPlayed ? color : color + '40';
+      // Create gradient for depth (Adobe Audition style)
+      const gradientTop = ctx.createLinearGradient(0, halfHeight - barHeight, 0, halfHeight);
+      const gradientBottom = ctx.createLinearGradient(0, halfHeight, 0, halfHeight + barHeight);
 
-      // Draw top half
+      if (isPlayed) {
+        // Played section: full color with gradient
+        gradientTop.addColorStop(0, color + 'CC'); // 80% opacity
+        gradientTop.addColorStop(1, color + '33'); // 20% opacity
+        gradientBottom.addColorStop(0, color + '33');
+        gradientBottom.addColorStop(1, color + 'CC');
+      } else {
+        // Unplayed section: dimmed with gradient
+        gradientTop.addColorStop(0, color + '66'); // 40% opacity
+        gradientTop.addColorStop(1, color + '1A'); // 10% opacity
+        gradientBottom.addColorStop(0, color + '1A');
+        gradientBottom.addColorStop(1, color + '66');
+      }
+
+      // Draw top half with gradient
+      ctx.fillStyle = gradientTop;
       ctx.fillRect(x, halfHeight - barHeight, barWidth - 0.5, barHeight);
-      // Draw bottom half (mirror)
+
+      // Draw bottom half (mirror) with gradient
+      ctx.fillStyle = gradientBottom;
       ctx.fillRect(x, halfHeight, barWidth - 0.5, barHeight);
+
+      // Add subtle glow on peaks (1-2px blur)
+      if (value > 0.7 && isPlayed) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, halfHeight - barHeight, barWidth - 0.5, barHeight);
+        ctx.fillRect(x, halfHeight, barWidth - 0.5, barHeight);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
     });
 
-    // Draw playhead
+    // Draw professional playhead cursor (red)
     const playheadX = (currentTime / duration) * rect.width;
-    ctx.strokeStyle = '#ef4444';
+    ctx.shadowColor = '#dc2626';
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#dc2626';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(playheadX, 0);
     ctx.lineTo(playheadX, rect.height);
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
   }, [waveformData, currentTime, duration, color]);
 
@@ -118,33 +154,60 @@ export const WaveformDisplay = ({
     onSeek(time);
   };
 
+  // Generate timeline markers
+  const generateTimelineMarkers = () => {
+    const markers = [];
+    const interval = 30; // 30 second intervals
+    for (let i = 0; i <= duration; i += interval) {
+      const minutes = Math.floor(i / 60);
+      const seconds = Math.floor(i % 60);
+      const label = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const position = (i / duration) * 100;
+      markers.push({ time: i, label, position });
+    }
+    return markers;
+  };
+
+  const timelineMarkers = generateTimelineMarkers();
+
   return (
     <div ref={containerRef} className="relative group">
+      {/* Timeline Ruler (for combined waveform only) */}
+      {isCombined && (
+        <div className="absolute top-0 left-0 right-0 h-6 flex items-end px-2 pointer-events-none z-20">
+          {timelineMarkers.map((marker, idx) => (
+            <div
+              key={idx}
+              className="absolute flex flex-col items-center"
+              style={{ left: `${marker.position}%`, transform: 'translateX(-50%)' }}
+            >
+              <span className="text-[9px] font-mono-time" style={{ color: '#606265' }}>
+                {marker.label}
+              </span>
+              <div className="w-px h-1.5 bg-gray-600/50" />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Label */}
       {label && (
-        <div className="absolute left-2 top-2 bg-slate-900/80 px-2 py-1 rounded text-xs font-semibold z-10"
-             style={{ color }}>
+        <div className="absolute left-2 top-2 px-2 py-1 rounded text-[11px] font-medium z-10"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', color, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
           {label}
         </div>
       )}
 
       {/* Flash indicator */}
       {flashingPeak !== null && (
-        <div className="absolute inset-0 bg-yellow-500/20 animate-pulse pointer-events-none" />
-      )}
-
-      {/* Combined label */}
-      {isCombined && (
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 font-medium">
-          Combined
-        </div>
+        <div className="absolute inset-0 bg-[#D4AF37]/20 animate-pulse pointer-events-none" />
       )}
 
       {/* Waveform Canvas */}
       <canvas
         ref={canvasRef}
-        className={`w-full bg-slate-800/50 ${onSeek ? 'cursor-pointer' : ''}`}
-        style={{ height: `${height}px` }}
+        className={`w-full waveform-enter ${onSeek ? 'cursor-pointer hover:opacity-90' : ''}`}
+        style={{ height: `${height}px`, backgroundColor: 'rgba(0,0,0,0.2)', transition: 'opacity 150ms ease-in-out' }}
         onClick={handleCanvasClick}
       />
 

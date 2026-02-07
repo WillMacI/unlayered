@@ -14,16 +14,17 @@ interface StructureMarkersProps {
 }
 
 // Color mapping for section types
+// Color mapping for section types (Grayscale / Subtle)
 const SECTION_COLORS: Record<string, string> = {
-  intro: 'bg-blue-500/20 border-blue-500',
-  verse: 'bg-green-500/20 border-green-500',
-  chorus: 'bg-purple-500/20 border-purple-500',
-  bridge: 'bg-orange-500/20 border-orange-500',
-  outro: 'bg-slate-500/20 border-slate-500',
-  drop: 'bg-red-500/20 border-red-500',
-  solo: 'bg-yellow-500/20 border-yellow-500',
-  'pre-chorus': 'bg-cyan-500/20 border-cyan-500',
-  'post-chorus': 'bg-pink-500/20 border-pink-500',
+  intro: 'bg-white/5 border-white/10',
+  verse: 'bg-white/5 border-white/10',
+  chorus: 'bg-white/10 border-white/20',
+  bridge: 'bg-white/5 border-white/10',
+  outro: 'bg-white/5 border-white/10',
+  drop: 'bg-white/10 border-white/20',
+  solo: 'bg-white/10 border-white/20',
+  'pre-chorus': 'bg-white/5 border-white/10',
+  'post-chorus': 'bg-white/5 border-white/10',
 };
 
 export const StructureMarkers = ({
@@ -52,9 +53,8 @@ export const StructureMarkers = ({
         return (
           <div
             key={`${section.type}-${index}`}
-            className={`absolute top-0 h-full border-l-2 transition-all pointer-events-auto cursor-pointer ${colorClass} ${
-              isActive ? 'opacity-100 border-l-4' : 'opacity-40 hover:opacity-70'
-            }`}
+            className={`absolute top-0 h-full border-l transition-all duration-150 pointer-events-auto cursor-pointer group ${colorClass} ${isActive ? 'opacity-100 border-l-[3px]' : 'opacity-30 hover:opacity-60 border-l-[1px]'
+              }`}
             style={{
               left: `${leftPercent}%`,
               width: `${widthPercent}%`,
@@ -64,16 +64,29 @@ export const StructureMarkers = ({
               section.endTime
             )})`}
           >
-            {/* Section label */}
+            {/* Section label pill */}
             <div
-              className={`absolute top-1 left-2 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap transition-all ${
-                isActive
-                  ? 'bg-white text-slate-900 scale-110'
-                  : 'bg-slate-900/80 text-white'
-              }`}
+              className={`absolute top-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all duration-150 ${isActive
+                  ? 'bg-white text-slate-900 scale-105 shadow-pro'
+                  : 'bg-black/70 text-white backdrop-blur-sm'
+                } group-hover:scale-105 group-hover:shadow-pro-lg`}
+              style={{ textShadow: isActive ? 'none' : '0 1px 2px rgba(0,0,0,0.8)' }}
             >
               {section.label}
             </div>
+
+            {/* Vertical divider at start of section */}
+            <div
+              className={`absolute top-0 left-0 w-px h-full ${isActive ? 'opacity-80' : 'opacity-40'
+                }`}
+              style={{ backgroundColor: 'var(--border-subtle)' }}
+            />
+
+            {/* Hover highlight overlay */}
+            <div
+              className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-150 pointer-events-none"
+              style={{ backgroundColor: 'white' }}
+            />
           </div>
         );
       })}

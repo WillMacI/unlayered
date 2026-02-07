@@ -7,13 +7,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        'waveform': {
-          'vocals': '#4ade80',
-          'guitar': '#f97316',
-          'drums': '#3b82f6',
-          'bass': '#a855f7',
-          'other': '#64748b',
-          'combined': '#06b6d4',
+        'brand': {
+          'gold': '#D4AF37', // Metallic Gold
+          'dark': '#0f0f0f',
+          'surface': '#1a1a1a',
         }
       }
     },

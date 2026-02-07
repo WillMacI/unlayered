@@ -39,9 +39,8 @@ export const LoadingScreen = ({
 
   return (
     <div
-      className={`min-h-screen bg-slate-900 flex items-center justify-center transition-opacity duration-500 ${
-        fadeIn ? 'opacity-100' : 'opacity-0'
-      }`}
+      className={`min-h-screen bg-slate-900 flex items-center justify-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
+        }`}
     >
       <div className="max-w-2xl w-full px-8">
         {/* Artist Image / Placeholder */}
@@ -94,7 +93,7 @@ export const LoadingScreen = ({
         <div className="mb-4">
           <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ease-out animate-pulse"
+              className="h-full bg-white/20 transition-all duration-300 ease-out animate-pulse"
               style={{ width: `${progress}%` }}
             />
           </div>

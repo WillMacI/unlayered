@@ -5,8 +5,8 @@ export const generateWaveformData = (length: number = 1000, complexity: number =
   const data: number[] = [];
   for (let i = 0; i < length; i++) {
     const value = Math.sin(i / 20) * 0.5 +
-                  Math.sin(i / 10) * 0.3 * complexity +
-                  Math.random() * 0.2;
+      Math.sin(i / 10) * 0.3 * complexity +
+      Math.random() * 0.2;
     data.push(Math.abs(value));
   }
   return data;
@@ -40,7 +40,7 @@ export const mockStems: Stem[] = [
     id: 'stem-vocals',
     type: 'vocals',
     label: 'Vocals',
-    color: '#4ade80',
+    color: '#D4AF37',
     volume: 0.8,
     pan: 0,
     isMuted: false,
@@ -55,7 +55,7 @@ export const mockStems: Stem[] = [
     id: 'stem-guitar',
     type: 'guitar',
     label: 'Guitar',
-    color: '#f97316',
+    color: '#D4AF37',
     volume: 0.7,
     pan: 0.2,
     isMuted: false,
@@ -70,7 +70,7 @@ export const mockStems: Stem[] = [
     id: 'stem-drums',
     type: 'drums',
     label: 'Drums',
-    color: '#3b82f6',
+    color: '#D4AF37',
     volume: 0.9,
     pan: 0,
     isMuted: false,
@@ -85,7 +85,7 @@ export const mockStems: Stem[] = [
     id: 'stem-bass',
     type: 'bass',
     label: 'Bass',
-    color: '#a855f7',
+    color: '#D4AF37',
     volume: 0.75,
     pan: -0.1,
     isMuted: false,
@@ -100,7 +100,7 @@ export const mockStems: Stem[] = [
     id: 'stem-other',
     type: 'other',
     label: 'Other',
-    color: '#64748b',
+    color: '#D4AF37',
     volume: 0.5,
     pan: 0,
     isMuted: false,

@@ -275,15 +275,15 @@ function App() {
       setProcessingStatus((prev) =>
         prev
           ? {
-              ...prev,
-              progress: Math.min(progress, 100),
-              message:
-                progress < 30
-                  ? 'Analyzing audio...'
-                  : progress < 70
+            ...prev,
+            progress: Math.min(progress, 100),
+            message:
+              progress < 30
+                ? 'Analyzing audio...'
+                : progress < 70
                   ? 'Separating stems...'
                   : 'Finalizing...',
-            }
+          }
           : null
       );
 
@@ -329,7 +329,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal
         shortcuts={shortcuts}
@@ -339,25 +339,31 @@ function App() {
 
       {/* Error Display */}
       {audioError && (
-        <div className="bg-red-500/10 border border-red-500 text-red-400 px-4 py-3 mx-4 mt-4 rounded">
+        <div className="bg-white/5 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded">
           <p className="text-sm font-medium">Audio Error: {audioError}</p>
         </div>
       )}
 
       {/* Loading Display */}
       {audioLoading && (
-        <div className="bg-blue-500/10 border border-blue-500 text-blue-400 px-4 py-3 mx-4 mt-4 rounded">
+        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded">
           <p className="text-sm font-medium">Loading audio files...</p>
         </div>
       )}
 
       {/* Test Loading Screen Button */}
-      <div className="mx-4 mt-4">
+      <div className="absolute top-20 right-6 z-50">
         <button
           onClick={testLoadingScreen}
-          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+          className="px-3 py-1.5 rounded-md text-[10px] font-medium shadow-pro hover:shadow-pro-lg transition-all duration-150 hover:scale-105"
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid var(--accent-gold)',
+            color: 'var(--accent-gold)',
+          }}
+          title="Test cinematic loading animation"
         >
-          🎬 Test Cinematic Loading Screen
+          🎬 Loading Demo
         </button>
       </div>
 
@@ -371,18 +377,18 @@ function App() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 p-4">
+      <div className="flex-1 flex gap-6 px-6 py-4">
         {/* Left: Waveforms */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-3">
           {/* Combined Waveform */}
-          <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
-            <div className="px-4 py-2 bg-slate-800/50 border-b border-slate-700">
+          <div className="rounded-md overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <div className="px-4 py-2.5 border-b" style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">
+                <h3 className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: 'var(--text-primary)', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
                   Combined / Stereo Mix
                 </h3>
-                <span className="text-xs text-slate-500">
-                  Both mixes in one waveform
+                <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                  Master waveform
                 </span>
               </div>
             </div>
@@ -391,20 +397,20 @@ function App() {
               currentTime={playbackState.currentTime}
               duration={playbackState.duration}
               peaks={mockPeaks}
-              color="#06b6d4"
-              label=""
+              color="#D4AF37"
+              label="Original Mix"
               onSeek={handleSeek}
               height={100}
               isCombined
               sections={mockSongStructure}
             />
-            <div className="px-4 py-2 bg-slate-800/50 text-center text-xs text-slate-500">
-              Click to traverse song
+            <div className="px-4 py-1.5 text-center text-[10px]" style={{ backgroundColor: 'rgba(0,0,0,0.15)', color: 'var(--text-tertiary)' }}>
+              Click waveform to seek
             </div>
           </div>
 
           {/* Individual Stems */}
-          <div className="space-y-3">
+          <div className="space-y-[1px]">
             {sortedStems.map((stem) => (
               <StemTrack
                 key={stem.id}
@@ -421,11 +427,9 @@ function App() {
           </div>
 
           {/* Info Note */}
-          <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
-            <p className="text-xs text-slate-400 text-center">
-              <span className="font-semibold text-slate-300">Note:</span> Tracks
-              are locked and automatically reorder based on audio presence,
-              volume, and mute state. Muted or silent tracks move to the bottom.
+          <div className="rounded-md p-3 mt-2" style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-[10px] text-center leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Tip:</span> Press <kbd className="px-1.5 py-0.5 rounded bg-black/40 font-mono text-[9px]">Shift+?</kbd> for keyboard shortcuts
             </p>
           </div>
         </div>
