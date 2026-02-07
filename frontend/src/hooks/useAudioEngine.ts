@@ -17,6 +17,7 @@ interface UseAudioEngineReturn {
   setMute: (stemId: string, muted: boolean) => void;
   setMasterVolume: (volume: number) => void;
   getWaveformData: (stemId: string, samples?: number) => number[];
+  getStereoWaveformData: (stemId: string, samples?: number) => { left: number[], right: number[] };
   currentTime: number;
   duration: number;
   isLoading: boolean;
@@ -216,6 +217,7 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     setMute,
     setMasterVolume,
     getWaveformData: (stemId: string, samples?: number) => engineRef.current?.getWaveformData(stemId, samples) || [],
+    getStereoWaveformData: (stemId: string, samples?: number) => engineRef.current?.getStereoWaveformData(stemId, samples) || { left: [], right: [] },
     currentTime,
     duration,
     isLoading,

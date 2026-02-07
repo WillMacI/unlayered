@@ -3,7 +3,7 @@ import type { WaveformPeak, SongSection } from '../types/audio';
 import { StructureMarkers } from './StructureMarkers';
 
 interface WaveformDisplayProps {
-  waveformData: number[];
+  waveformData: number[] | { left: number[], right: number[] };
   currentTime: number;
   duration: number;
   peaks: WaveformPeak[];
@@ -14,6 +14,9 @@ interface WaveformDisplayProps {
   isCombined?: boolean;
   zoom?: number;
   sections?: SongSection[];
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  onInteract?: () => void;
+  setScrollRef?: (ref: HTMLDivElement | null) => void;
 }
 
 export const WaveformDisplay = ({
@@ -28,6 +31,9 @@ export const WaveformDisplay = ({
   isCombined = false,
   sections,
   zoom = 1,
+  onScroll,
+  onInteract,
+  setScrollRef,
 }: WaveformDisplayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,58 +89,71 @@ export const WaveformDisplay = ({
     // Clear canvas
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // Draw waveform with gradient fill
-    const barWidth = rect.width / waveformData.length;
+    // Draw waveform with gradient fill - using Path for high resolution
+    const totalPoints = Array.isArray(waveformData) ? waveformData.length : waveformData.left.length;
+    const pointWidth = rect.width / totalPoints;
     const halfHeight = rect.height / 2;
 
-    waveformData.forEach((value, index) => {
-      const x = index * barWidth;
-      const barHeight = value * halfHeight * 0.9;
+    const drawChannelPath = (data: number[], isTop: boolean) => {
+      const path = new Path2D();
+      path.moveTo(0, halfHeight);
 
-      // Determine color based on playback position
-      const progress = currentTime / duration;
-      const isPlayed = index / waveformData.length < progress;
-
-      // Create gradient for depth (Adobe Audition style)
-      const gradientTop = ctx.createLinearGradient(0, halfHeight - barHeight, 0, halfHeight);
-      const gradientBottom = ctx.createLinearGradient(0, halfHeight, 0, halfHeight + barHeight);
-
-      if (isPlayed) {
-        // Played section: full color with gradient
-        gradientTop.addColorStop(0, color + 'CC'); // 80% opacity
-        gradientTop.addColorStop(1, color + '33'); // 20% opacity
-        gradientBottom.addColorStop(0, color + '33');
-        gradientBottom.addColorStop(1, color + 'CC');
-      } else {
-        // Unplayed section: dimmed with gradient
-        gradientTop.addColorStop(0, color + '66'); // 40% opacity
-        gradientTop.addColorStop(1, color + '1A'); // 10% opacity
-        gradientBottom.addColorStop(0, color + '1A');
-        gradientBottom.addColorStop(1, color + '66');
+      for (let i = 0; i < data.length; i++) {
+        const x = i * pointWidth;
+        const val = data[i];
+        // Ensure strictly positive height for visibility
+        const height = Math.max(1, val * halfHeight * 0.95);
+        const y = isTop
+          ? halfHeight - height
+          : halfHeight + height;
+        path.lineTo(x, y);
       }
 
-      // Draw top half with gradient
-      ctx.fillStyle = gradientTop;
-      ctx.fillRect(x, halfHeight - barHeight, barWidth - 0.5, barHeight);
+      path.lineTo(rect.width, halfHeight);
+      path.closePath();
 
-      // Draw bottom half (mirror) with gradient
-      ctx.fillStyle = gradientBottom;
-      ctx.fillRect(x, halfHeight, barWidth - 0.5, barHeight);
+      // 1. Draw Unplayed (Background) state - Dimmed
+      ctx.save();
+      const gradientUnplayed = ctx.createLinearGradient(0, isTop ? 0 : halfHeight, 0, isTop ? halfHeight : rect.height);
+      gradientUnplayed.addColorStop(0, color + '66'); // 40%
+      gradientUnplayed.addColorStop(1, color + '1A'); // 10%
+      ctx.fillStyle = gradientUnplayed;
+      ctx.fill(path);
+      ctx.restore();
 
-      // Add subtle glow on peaks (1-2px blur)
-      if (value > 0.7 && isPlayed) {
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 2;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.globalAlpha = 0.4;
-        ctx.fillStyle = color;
-        ctx.fillRect(x, halfHeight - barHeight, barWidth - 0.5, barHeight);
-        ctx.fillRect(x, halfHeight, barWidth - 0.5, barHeight);
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-      }
-    });
+      // 2. Draw Played (Foreground) state - Bright & Clipped
+      ctx.save();
+      const progressX = (currentTime / duration) * rect.width;
+
+      // Create clip region for played part
+      ctx.beginPath();
+      ctx.rect(0, 0, progressX, rect.height);
+      ctx.clip();
+
+      const gradientPlayed = ctx.createLinearGradient(0, isTop ? 0 : halfHeight, 0, isTop ? halfHeight : rect.height);
+      gradientPlayed.addColorStop(0, color + 'FF'); // 100%
+      gradientPlayed.addColorStop(1, color + '66'); // 40%
+      ctx.fillStyle = gradientPlayed;
+      ctx.fill(path); // Fill the SAME path again
+
+      // Add heavy glow to played part for "neon" look
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.globalAlpha = 0.6;
+      ctx.fill(path);
+
+      ctx.restore();
+    };
+
+    if (Array.isArray(waveformData)) {
+      // Mono rendering (mirrored)
+      drawChannelPath(waveformData, true);
+      drawChannelPath(waveformData, false);
+    } else {
+      // Stereo rendering
+      drawChannelPath(waveformData.left, true);
+      drawChannelPath(waveformData.right, false);
+    }
 
     // Draw professional playhead cursor (red)
     const playheadX = (currentTime / duration) * rect.width;
@@ -148,7 +167,7 @@ export const WaveformDisplay = ({
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-  }, [waveformData, currentTime, duration, color, zoom]); // Re-draw when zoom changes
+  }, [waveformData, currentTime, duration, color, zoom]);
 
   // Update container width on mount, resize, and zoom
   useEffect(() => {
@@ -192,7 +211,12 @@ export const WaveformDisplay = ({
 
   return (
     <div
-      ref={scrollContainerRef}
+      ref={(el) => {
+        scrollContainerRef.current = el;
+        if (setScrollRef) setScrollRef(el);
+      }}
+      onScroll={onScroll}
+      onMouseDown={onInteract}
       className={`relative group ${zoom > 1 ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}
       style={{ width: '100%' }}
     >

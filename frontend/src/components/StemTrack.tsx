@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
@@ -13,6 +14,9 @@ interface StemTrackProps {
 
   onSeek: (time: number) => void;
   zoom?: number;
+  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  onInteract?: () => void;
+  setScrollRef?: (ref: HTMLDivElement | null) => void;
 }
 
 export const StemTrack = ({
@@ -26,7 +30,13 @@ export const StemTrack = ({
 
   onSeek,
   zoom = 1,
+  onScroll,
+  onInteract,
+  setScrollRef
 }: StemTrackProps) => {
+  /* Tooltip logic removed for cleaner UI */
+  const [viewMode, setViewMode] = useState<'mono' | 'stereo'>('mono');
+
   const formatPan = (value: number) => {
     if (value === 0) return 'C';
     return value > 0
@@ -54,14 +64,23 @@ export const StemTrack = ({
             <button
               onClick={() => onToggleMute(stem.id)}
               className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${stem.isMuted ? 'bg-neutral-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+              title="Mute"
             >
               {stem.isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={() => onToggleSolo(stem.id)}
               className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${stem.isSolo ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+              title="Solo"
             >
               S
+            </button>
+            <button
+              onClick={() => setViewMode(prev => prev === 'mono' ? 'stereo' : 'mono')}
+              className={`w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${viewMode === 'stereo' ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+              title="Toggle Mono/Stereo View"
+            >
+              {viewMode === 'stereo' ? 'LR' : 'M'}
             </button>
           </div>
         </div>
@@ -70,14 +89,17 @@ export const StemTrack = ({
       {/* 2. Waveform (Center - Flex Grow) */}
       <div className="flex-1 min-w-0 relative h-20 flex items-center">
         <WaveformDisplay
-          waveformData={stem.waveformData}
+          waveformData={viewMode === 'stereo' && typeof stem.waveformData === 'object' && !Array.isArray(stem.waveformData) ? stem.waveformData : (Array.isArray(stem.waveformData) ? stem.waveformData : stem.waveformData.left)} // Fallback to left channel if mono requested but data is stereo, or just pass data if it matches
           currentTime={currentTime}
           duration={duration}
           peaks={[]}
           color={stem.color}
           label=""
           onSeek={onSeek}
-          height={80} // Increased height for larger tracks
+          height={96}
+          onScroll={onScroll}
+          onInteract={onInteract}
+          setScrollRef={setScrollRef}
           zoom={zoom}
         />
       </div>

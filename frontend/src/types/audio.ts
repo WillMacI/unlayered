@@ -10,7 +10,7 @@ export interface Stem {
   isMuted: boolean;
   isSolo: boolean;
   isLocked: boolean;
-  waveformData: number[];
+  waveformData: number[] | { left: number[], right: number[] };
   hasAudio: boolean;
   order: number;
   audioUrl?: string;        // URL to audio file

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { PlaybackHeader } from './components/PlaybackHeader';
 import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
@@ -6,6 +6,7 @@ import { AIInsights } from './components/AIInsights';
 import { FileUpload } from './components/FileUpload';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 
+import { SongIntro } from './components/SongIntro';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import type { AudioFile, Stem, PlaybackState } from './types/audio';
@@ -19,8 +20,10 @@ import {
 } from './utils/mockData';
 
 function App() {
-  const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile);
-  const [stems, setStems] = useState<Stem[]>(mockStems);
+  // const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile); // Start with mock
+  const [audioFile, setAudioFile] = useState<AudioFile | null>(null); // Start with Upload Screen
+  const [showIntro, setShowIntro] = useState(false); // Intro screen state
+  const [stems, setStems] = useState<Stem[]>([]);
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
     currentTime: 0,
@@ -51,6 +54,7 @@ function App() {
     isLoading: audioLoading,
     error: audioError,
     getWaveformData,
+    getStereoWaveformData,
   } = useAudioEngine();
 
   // Sync audio time to UI
@@ -78,9 +82,11 @@ function App() {
           setStems(prevStems => {
             const updatedStems = prevStems.map(stem => {
               if (stem.audioUrl) {
-                // Generate 1000 points for accurate visualization
-                const realWaveform = getWaveformData(stem.id, 1000);
-                if (realWaveform.length > 0 && realWaveform.some(v => v > 0)) {
+                // Generate 2000 points for detailed stereo visualization
+                const realWaveform = getStereoWaveformData(stem.id, 2000);
+                // Real waveform comes back as { left: [], right: [] } always from our new method helper
+                // Check if it has data
+                if (realWaveform.left.length > 0 && realWaveform.left.some(v => v > 0)) {
                   return { ...stem, waveformData: realWaveform };
                 }
               }
@@ -88,15 +94,28 @@ function App() {
             });
 
             // Calculate combined waveform (average of all active stems)
-            const length = 1000;
+            const length = 2000;
             const combined = new Array(length).fill(0);
             let activeCount = 0;
 
             updatedStems.forEach(stem => {
-              if (stem.waveformData && stem.waveformData.length === length) {
+              // Handle both mono and stereo structures for the combined view logic
+              let dataToAdd: number[] = [];
+              if (Array.isArray(stem.waveformData)) {
+                if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
+              } else {
+                // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
+                const stereoData = stem.waveformData as { left: number[], right: number[] };
+                if (stereoData.left.length === length) {
+                  // Simple mono mixdown for visualization
+                  dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
+                }
+              }
+
+              if (dataToAdd.length === length) {
                 activeCount++;
                 for (let i = 0; i < length; i++) {
-                  combined[i] += stem.waveformData[i];
+                  combined[i] += dataToAdd[i];
                 }
               }
             });
@@ -113,7 +132,7 @@ function App() {
         });
       }
     }
-  }, [audioFile, stemsLoaded, loadAudioStems, getWaveformData]);
+  }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // Note: stems is intentionally not in dependencies to prevent reloading on volume/mute changes
@@ -148,6 +167,7 @@ function App() {
   const handleSeek = (time: number) => {
     seekAudio(time);
     setPlaybackState((prev) => ({ ...prev, currentTime: time }));
+    userHasScrolled.current = false; // Snap back to playhead on seek
   };
 
   const handleToggleMute = (stemId: string) => {
@@ -219,11 +239,19 @@ function App() {
     );
   };
 
+  // Debug logging
+  // console.log('App Render: audioFile:', audioFile);
+
   const handleFileSelect = (file: File) => {
     // In a real app, this would trigger backend processing
     console.log('File selected:', file);
-    // For now, just use mock data
+
+    // Simulate loading optimization or preparation
     setAudioFile(mockAudioFile);
+    // setStems(mockStems); // Keeping stems empty until "Enter Studio"? Or preload?
+    // Let's preload them so main view is ready.
+    setStems(mockStems);
+    setShowIntro(true);
   };
 
   const handlePrevious = () => {
@@ -264,6 +292,8 @@ function App() {
     });
   };
 
+
+
   // Define keyboard shortcuts
   const shortcuts: KeyboardShortcut[] = [
     { key: ' ', action: handlePlayPause, description: 'Play/Pause' },
@@ -297,6 +327,83 @@ function App() {
   // Enable keyboard shortcuts when audio file is loaded
   useKeyboardShortcuts(shortcuts, { enabled: !!audioFile });
 
+  // Scroll Sync Logic
+  const scrollContainers = useRef<Set<HTMLDivElement>>(new Set());
+  const isAutoScrolling = useRef(false);
+  const userHasScrolled = useRef(false);
+
+  const registerScrollRef = useCallback((ref: HTMLDivElement | null) => {
+    if (ref) scrollContainers.current.add(ref);
+    // don't remove nulls here strictly as refs might remount, but good practice to clean up:
+    // We can't easily know which one was removed if passed null, but standard refs callback pattern:
+    // passed null on unmount. We'd need to track it.
+    // For simplicity, we just add. (Set prevents duplicates).
+    // Ideally we'd wrap this component to handle unmount, but for now this is fine
+    // as long as we check if connected in the loop.
+  }, []);
+
+  const handleGlobalScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (isAutoScrolling.current) return;
+
+    // User is scrolling manually
+    userHasScrolled.current = true;
+    const target = e.currentTarget;
+    const scrollLeft = target.scrollLeft;
+
+    isAutoScrolling.current = true;
+    scrollContainers.current.forEach((container) => {
+      if (container !== target && container.isConnected) {
+        container.scrollLeft = scrollLeft;
+      }
+    });
+    // Small timeout to allow the scroll events to settle before unflagging
+    requestAnimationFrame(() => {
+      isAutoScrolling.current = false;
+    });
+  }, []);
+
+  const handleUserInteract = useCallback(() => {
+    // If user clicks seeking, we can re-enable auto-scroll or keep it as is
+    // For now, let's say seeking DOES NOT disable auto-scroll (it "resets" userHasScrolled)
+    // userHasScrolled.current = false;
+    // Actually, usually seeking jumps the playhead, so we SHOULD snap to it.
+    userHasScrolled.current = false;
+  }, []);
+
+  // Update scroll based on playhead
+  useEffect(() => {
+    const { duration, currentTime } = playbackState;
+    // Always follow playhead if user hasn't scrolled, even if paused.
+    if (!userHasScrolled.current && duration > 0 && zoomLevel > 1) {
+      const containers = Array.from(scrollContainers.current);
+      if (containers.length > 0 && containers[0].isConnected) {
+        const container = containers[0]; // Use first as reference for dimensions
+        const totalWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
+
+        const progress = currentTime / duration;
+        const targetScroll = (totalWidth * progress) - (clientWidth / 2); // Center playhead
+
+        if (Math.abs(container.scrollLeft - targetScroll) > 5) { // Only scroll if difference is significant
+          isAutoScrolling.current = true;
+          containers.forEach(c => {
+            if (c.isConnected) c.scrollLeft = targetScroll;
+          });
+          requestAnimationFrame(() => {
+            isAutoScrolling.current = false;
+          });
+        }
+      }
+    }
+  }, [playbackState.currentTime, playbackState.duration, zoomLevel]);
+
+  // Reset user scroll flag on play start
+  useEffect(() => {
+    if (playbackState.isPlaying) {
+      userHasScrolled.current = false;
+    }
+  }, [playbackState.isPlaying]);
+
   // Show loading screen if processing
   /* Removed demo loading screen logic */
 
@@ -314,6 +421,16 @@ function App() {
           <FileUpload onFileSelect={handleFileSelect} />
         </div>
       </div>
+    );
+  }
+
+  // Show Intro Screen if active
+  if (showIntro && audioFile) {
+    return (
+      <SongIntro
+        audioFile={audioFile}
+        onStart={() => setShowIntro(false)}
+      />
     );
   }
 
@@ -387,6 +504,9 @@ function App() {
                 isCombined
                 sections={mockSongStructure}
                 zoom={zoomLevel}
+                onScroll={handleGlobalScroll}
+                onInteract={handleUserInteract}
+                setScrollRef={registerScrollRef}
               />
             </div>
           </div>
@@ -407,6 +527,9 @@ function App() {
                   onPanChange={handlePanChange}
                   onSeek={handleSeek}
                   zoom={zoomLevel}
+                  onScroll={handleGlobalScroll}
+                  onInteract={handleUserInteract}
+                  setScrollRef={registerScrollRef}
                 />
               ))}
             </div>

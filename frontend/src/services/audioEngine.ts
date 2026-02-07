@@ -315,6 +315,44 @@ export class AudioEngine {
     return waveform.map(val => Math.min(1, (val / max) * 1.5));
   }
 
+  /**
+   * Get stereo waveform data (left and right channels)
+   */
+  getStereoWaveformData(stemId: string, samples: number = 200): { left: number[], right: number[] } {
+    const stem = this.stems.get(stemId);
+    if (!stem || !stem.buffer) {
+      return { left: new Array(samples).fill(0), right: new Array(samples).fill(0) };
+    }
+
+    const processChannel = (channelIndex: number): number[] => {
+      // If buffer is mono, use channel 0 for both
+      const idx = Math.min(channelIndex, stem.buffer!.numberOfChannels - 1);
+      const channelData = stem.buffer!.getChannelData(idx);
+      const step = Math.floor(channelData.length / samples);
+      const waveform: number[] = [];
+
+      for (let i = 0; i < samples; i++) {
+        const start = i * step;
+        const end = start + step;
+        let sum = 0;
+
+        for (let j = start; j < end; j++) {
+          sum += channelData[j] * channelData[j];
+        }
+
+        waveform.push(Math.sqrt(sum / step));
+      }
+
+      const max = Math.max(...waveform) || 1;
+      return waveform.map(val => Math.min(1, (val / max) * 1.5));
+    };
+
+    return {
+      left: processChannel(0),
+      right: processChannel(1)
+    };
+  }
+
   cleanup(): void {
     // Stop playback first
     if (this.isPlaying) {
