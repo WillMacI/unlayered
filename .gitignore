@@ -42,3 +42,9 @@ yarn-error.log*
 
 # Shared
 shared/node_modules/
+frontend/public/test-audio/bass.wav
+frontend/public/test-audio/drums.wav
+frontend/public/test-audio/guitar.wav
+frontend/public/test-audio/other.wav
+frontend/public/test-audio/piano.wav
+frontend/public/test-audio/vocals.wav
