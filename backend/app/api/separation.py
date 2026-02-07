@@ -99,6 +99,11 @@ async def upload_audio(
     except Exception as e:
         logger.error(f"Error saving uploaded file: {e}")
         raise HTTPException(status_code=500, detail="Error saving uploaded file")
+    finally:
+        try:
+            await file.close()
+        except Exception as e:
+            logger.warning(f"Failed to close uploaded file for job {job_id}: {e}")
 
     # Validate actual file content (not just MIME type which can be spoofed)
     # Note: We use a simple size/extension check for MP3 since soundfile/libsndfile
@@ -119,7 +124,7 @@ async def upload_audio(
                 raise ValueError(f"File too small ({file_size} bytes) to be valid audio")
             logger.info(f"Accepted {file_ext} file ({file_size} bytes) - will be validated by Demucs")
         else:
-            logger.warning(f"Unknown audio format: {file_ext}")
+            raise ValueError(f"Unsupported audio format: {file_ext}")
     except Exception as e:
         # Invalid audio file - clean up and reject
         logger.warning(f"Invalid audio file for job {job_id}: {e}")
