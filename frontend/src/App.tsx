@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type UIEvent } from 'react';
 import { PlaybackHeader } from './components/PlaybackHeader';
 import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
@@ -44,27 +44,6 @@ function App() {
   useEffect(() => {
     stemsRef.current = stems;
   }, [stems]);
-  useEffect(() => {
-    const prevStems = prevStemsRef.current;
-    if (prevStems.length === 0) {
-      prevStemsRef.current = stems;
-      return;
-    }
-
-    const prevMutedById = new Map(prevStems.map((stem) => [stem.id, stem.isMuted]));
-    const anySolo = stems.some((stem) => stem.isSolo);
-    const soloChanged = anySolo !== prevAnySoloRef.current;
-    stems.forEach((stem) => {
-      const prevMuted = prevMutedById.get(stem.id);
-      const targetMuted = anySolo ? !stem.isSolo : stem.isMuted;
-      if (prevMuted === undefined || prevMuted !== stem.isMuted || anySolo || soloChanged) {
-        setAudioMute(stem.id, targetMuted);
-      }
-    });
-
-    prevStemsRef.current = stems;
-    prevAnySoloRef.current = anySolo;
-  }, [stems, setAudioMute]);
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -89,6 +68,28 @@ function App() {
     error: audioError,
     getStereoWaveformData,
   } = useAudioEngine();
+
+  useEffect(() => {
+    const prevStems = prevStemsRef.current;
+    if (prevStems.length === 0) {
+      prevStemsRef.current = stems;
+      return;
+    }
+
+    const prevMutedById = new Map(prevStems.map((stem) => [stem.id, stem.isMuted]));
+    const anySolo = stems.some((stem) => stem.isSolo);
+    const soloChanged = anySolo !== prevAnySoloRef.current;
+    stems.forEach((stem) => {
+      const prevMuted = prevMutedById.get(stem.id);
+      const targetMuted = anySolo ? !stem.isSolo : stem.isMuted;
+      if (prevMuted === undefined || prevMuted !== stem.isMuted || anySolo || soloChanged) {
+        setAudioMute(stem.id, targetMuted);
+      }
+    });
+
+    prevStemsRef.current = stems;
+    prevAnySoloRef.current = anySolo;
+  }, [stems, setAudioMute]);
 
   // Sync audio time to UI
   useEffect(() => {
@@ -372,8 +373,8 @@ function App() {
     },
   ], [handlePlayPause, handleSeek, handleToggleMuteByIndex, handleMuteAll, handleSoloActive, adjustMasterVolume]);
 
-  // Enable keyboard shortcuts when audio file is loaded
-  useKeyboardShortcuts(shortcuts, { enabled: !!audioFile });
+  // Enable keyboard shortcuts only when audio file is loaded and intro is not shown
+  useKeyboardShortcuts(shortcuts, { enabled: !!audioFile && !showIntro });
 
   // Scroll Sync Logic
   const scrollContainers = useRef<Set<HTMLDivElement>>(new Set());
@@ -393,7 +394,7 @@ function App() {
     }
   }, []);
 
-  const handleGlobalScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+  const handleGlobalScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     if (isAutoScrolling.current) return;
 
     // User is scrolling manually

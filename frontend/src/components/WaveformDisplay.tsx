@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { WaveformPeak, SongSection } from '../types/audio';
 import { StructureMarkers } from './StructureMarkers';
 
@@ -173,7 +173,7 @@ export const WaveformDisplay = ({
 
   }, [waveformData, currentTime, duration, color, zoom]);
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasClick = (e: MouseEvent<HTMLCanvasElement>) => {
     if (!onSeek || !canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();

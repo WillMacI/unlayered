@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type UIEvent } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
@@ -15,7 +15,7 @@ interface StemTrackProps {
 
   onSeek: (time: number) => void;
   zoom?: number;
-  onScroll?: (e: React.UIEvent<HTMLDivElement>) => void;
+  onScroll?: (e: UIEvent<HTMLDivElement>) => void;
   onInteract?: () => void;
   setScrollRef?: (ref: HTMLDivElement | null) => void;
 }

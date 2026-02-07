@@ -133,8 +133,12 @@ export class AudioEngine {
     });
 
     // Create and start sources for all stems
+    let startedSources = 0;
     this.stems.forEach((stem) => {
       if (!stem.buffer) return;
+      if (offset >= stem.buffer.duration) {
+        return;
+      }
 
       // Create new source (AudioBufferSourceNode is one-shot)
       const source = this.context!.createBufferSource();
@@ -145,6 +149,7 @@ export class AudioEngine {
 
       // Start playback from offset
       source.start(0, offset);
+      startedSources += 1;
 
       // Handle end of playback
       source.onended = () => {
@@ -156,6 +161,11 @@ export class AudioEngine {
 
       stem.source = source;
     });
+
+    if (startedSources === 0) {
+      this.isPlaying = false;
+      return;
+    }
 
     this.startTime = this.context.currentTime - offset;
   }
