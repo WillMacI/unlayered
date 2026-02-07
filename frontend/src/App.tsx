@@ -5,19 +5,34 @@ import { StemTrack } from './components/StemTrack';
 import { AIInsights } from './components/AIInsights';
 import { FileUpload } from './components/FileUpload';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { LoadingScreen } from './components/LoadingScreen';
+import { Toast } from './components/Toast';
 
 import { SongIntro } from './components/SongIntro';
 import { useAudioEngine } from './hooks/useAudioEngine';
+import { useSeparation } from './hooks/useSeparation';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
+import { getStemDownloadUrl } from './services/apiClient';
 import type { AudioFile, Stem, PlaybackState } from './types/audio';
+import { mapBackendStemToType } from './types/audio';
 import {
   mockAudioFile,
-  mockStems,
   mockAIInsight,
   mockCombinedWaveform,
   mockPeaks,
   mockSongStructure,
+  generateWaveformData,
 } from './utils/mockData';
+
+// Stem color and label configuration
+const STEM_CONFIG: Record<string, { color: string; label: string; order: number }> = {
+  vocals: { color: '#D4AF37', label: 'Vocals', order: 1 },
+  guitar: { color: '#D4AF37', label: 'Guitar', order: 2 },
+  drums: { color: '#D4AF37', label: 'Drums', order: 3 },
+  bass: { color: '#D4AF37', label: 'Bass', order: 4 },
+  other: { color: '#D4AF37', label: 'Other', order: 5 },
+  piano: { color: '#D4AF37', label: 'Piano', order: 6 },
+};
 
 function App() {
   // const [audioFile, setAudioFile] = useState<AudioFile | null>(mockAudioFile); // Start with mock
@@ -35,6 +50,19 @@ function App() {
   });
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [stemsLoaded, setStemsLoaded] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ message: string; variant: 'error' | 'success' | 'info' } | null>(null);
+
+  // Separation hook for backend integration
+  const {
+    stage: separationStage,
+    progress: separationProgress,
+    error: separationError,
+    result: separationResult,
+    capabilities,
+    recommendedQuality,
+    startSeparation,
+    reset: resetSeparation,
+  } = useSeparation();
 
   // Ref to hold current playback state for stable keyboard shortcut callbacks
   const playbackStateRef = useRef(playbackState);
@@ -113,6 +141,70 @@ function App() {
     setMasterVolume(playbackState.volume);
   }, [playbackState.volume, setMasterVolume]);
 
+  // Handle separation completion
+  useEffect(() => {
+    if (separationStage === 'completed' && separationResult) {
+      // Convert backend result to Stem[] format, filtering out null tracks
+      const newStems: Stem[] = Object.entries(separationResult.tracks)
+        .filter(([_stemName, path]) => path !== null) // Only include stems that exist
+        .map(([stemName, _path]) => {
+          // mapBackendStemToType safely handles unknown stem names by returning 'other'
+          const stemType = mapBackendStemToType(stemName);
+          const config = STEM_CONFIG[stemName] || STEM_CONFIG.other;
+
+          return {
+            id: `stem-${stemName}`,
+            type: stemType,
+            label: config.label,
+            color: config.color,
+            volume: 0.8,
+            pan: 0,
+            isMuted: false,
+            isSolo: false,
+            isLocked: true,
+            waveformData: generateWaveformData(1000, 0.8),
+            hasAudio: true,
+            order: config.order,
+            audioUrl: getStemDownloadUrl(separationResult.job_id, stemName),
+          };
+        });
+
+      // Sort by order
+      newStems.sort((a, b) => a.order - b.order);
+
+      // Create audio file metadata
+      // Note: Backend doesn't provide audio duration, so we use a default
+      // The actual duration will be set once stems are loaded
+      const newAudioFile: AudioFile = {
+        id: separationResult.job_id,
+        name: 'Separated Track',
+        artist: 'Unknown Artist',
+        duration: 180, // Will be updated when audio loads
+        format: 'WAV',
+      };
+
+      setStems(newStems);
+      setStemsLoaded(false);
+      setCombinedWaveform([]);
+      setPlaybackState((prev) => ({
+        ...prev,
+        isPlaying: false,
+        currentTime: 0,
+        duration: newAudioFile.duration,
+      }));
+      setAudioFile(newAudioFile);
+      setShowIntro(true);
+    }
+  }, [separationStage, separationResult]);
+
+  // Handle separation failure
+  useEffect(() => {
+    if (separationStage === 'failed' && separationError) {
+      setToastMessage({ message: separationError, variant: 'error' });
+      resetSeparation();
+    }
+  }, [separationStage, separationError, resetSeparation]);
+
   // Load stems when audio file is set (only once)
   useEffect(() => {
     if (!audioFile || stemsLoaded || stems.length === 0) return;
@@ -173,8 +265,12 @@ function App() {
           });
 
           if (activeCount > 0) {
-            // Normalize combined waveform
-            const max = Math.max(...combined) || 1;
+            // Normalize combined waveform - compute max iteratively
+            let max = 0;
+            for (let i = 0; i < combined.length; i++) {
+              if (combined[i] > max) max = combined[i];
+            }
+            if (max === 0) max = 1;
             const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
             setCombinedWaveform(normalizedCombined);
           }
@@ -272,28 +368,11 @@ function App() {
     );
   };
 
-  // Debug logging
-  // console.log('App Render: audioFile:', audioFile);
-
-  const handleFileSelect = (file: File) => {
-    // In a real app, this would trigger backend processing
-    console.log('File selected:', file);
-
-    // Simulate loading optimization or preparation
-    setAudioFile(mockAudioFile);
-    setStemsLoaded(false);
-    setCombinedWaveform([]);
-    setPlaybackState((prev) => ({
-      ...prev,
-      isPlaying: false,
-      currentTime: 0,
-      duration: mockAudioFile.duration,
-    }));
-    // setStems(mockStems); // Keeping stems empty until "Enter Studio"? Or preload?
-    // Let's preload them so main view is ready.
-    setStems(mockStems);
-    setShowIntro(true);
+  const handleFileSelect = async (file: File, quality: number) => {
+    // Start real backend separation
+    await startSeparation(file, quality);
   };
+
 
   // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
   const handleToggleMuteByIndex = useCallback((index: number) => {
@@ -465,8 +544,34 @@ function App() {
     }
   }, [playbackState.isPlaying]);
 
-  // Show loading screen if processing
-  /* Removed demo loading screen logic */
+  // Show loading screen during separation processing
+  const isProcessing = separationStage === 'uploading' || separationStage === 'queued' || separationStage === 'processing';
+
+  if (isProcessing) {
+    const statusMessages: Record<string, string> = {
+      uploading: 'Uploading audio file...',
+      queued: 'Queued for processing...',
+      processing: 'Separating audio stems...',
+    };
+
+    return (
+      <>
+        <LoadingScreen
+          artist="Processing"
+          trackName="Audio Separation"
+          progress={separationProgress}
+          status={statusMessages[separationStage] || 'Processing...'}
+        />
+        {toastMessage && (
+          <Toast
+            message={toastMessage.message}
+            variant={toastMessage.variant}
+            onClose={() => setToastMessage(null)}
+          />
+        )}
+      </>
+    );
+  }
 
   // If no audio file, show upload screen
   if (!audioFile) {
@@ -479,8 +584,20 @@ function App() {
               A new way to listen to music
             </p>
           </div>
-          <FileUpload onFileSelect={handleFileSelect} />
+          <FileUpload
+            onFileSelect={handleFileSelect}
+            capabilities={capabilities}
+            recommendedQuality={recommendedQuality}
+            disabled={isProcessing}
+          />
         </div>
+        {toastMessage && (
+          <Toast
+            message={toastMessage.message}
+            variant={toastMessage.variant}
+            onClose={() => setToastMessage(null)}
+          />
+        )}
       </div>
     );
   }
@@ -503,6 +620,15 @@ function App() {
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
       />
+
+      {/* Toast Notifications */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage.message}
+          variant={toastMessage.variant}
+          onClose={() => setToastMessage(null)}
+        />
+      )}
 
       {/* Error Display */}
       {audioError && (

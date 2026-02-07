@@ -186,7 +186,7 @@ export const WaveformDisplay = ({
 
   // Generate timeline markers
   const timelineMarkers = useMemo(() => {
-    const markers = [];
+    const markers: { time: number; label: string; position: number }[] = [];
     if (duration <= 0) return markers;
     const interval = 30; // 30 second intervals
     for (let i = 0; i <= duration; i += interval) {
