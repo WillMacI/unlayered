@@ -11,6 +11,8 @@ try:
 except Exception as import_error:  # pragma: no cover - environment dependent
     demucs_api = None
     _demucs_import_error = import_error
+    logger = logging.getLogger(__name__)
+    logger.warning("Demucs import failed: %s", import_error)
 
 from app.config import settings
 

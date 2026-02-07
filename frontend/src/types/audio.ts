@@ -75,16 +75,16 @@ export interface TimedLyricAnnotation {
 export interface SongMetadata {
   id: number;
   title: string;
-  album_name?: string;
+  album_name?: string | null;
   artists: string[];
-  artist_id?: number;
+  artist_id?: number | null;
   album_thumbnail?: string | null;
   song_art_image_url?: string | null;
   artist_image_url?: string | null;
   primary_colour?: string | null;
   secondary_colour?: string | null;
-  bio?: string;
-  annotation_count?: number;
+  bio?: string | null;
+  annotation_count?: number | null;
 }
 
 export interface AudioLoadingState {

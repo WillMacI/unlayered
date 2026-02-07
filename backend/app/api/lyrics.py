@@ -109,9 +109,9 @@ def resolve_song(song_id: int) -> Dict[str, Any]:
     genius.remove_section_headers = True
     lyrics_text: Optional[str] = None
     try:
-        song_obj = genius.search_song(mapped_song["title"], mapped_song["artists"][0] if mapped_song["artists"] else None)
-        if song_obj:
-            lyrics_text = song_obj.lyrics
+        song_url = song.get("url")
+        if song_url:
+            lyrics_text = genius.lyrics(song_url)
     except Exception:
         lyrics_text = None
 

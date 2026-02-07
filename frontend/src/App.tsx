@@ -474,9 +474,7 @@ function App() {
     setLyricsLoading(true);
     setLyricsError(null);
     try {
-      console.log('[Lyrics] Selected result:', result);
       const payload = await resolveLyricsSong(result.id);
-      console.log('[Lyrics] Raw payload:', payload);
       setSongMeta(payload.song);
       setTimedLyrics(payload.timed_lyrics);
 

@@ -5,19 +5,21 @@ from typing import Any, Dict, List, Optional
 
 def parse_lrc(lrc: str) -> List[Dict[str, Any]]:
     lines: List[Dict[str, Any]] = []
+    timestamp_pattern = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
     for raw in lrc.splitlines():
-        match = re.match(r"\[(\d+):(\d+\.\d+)\]\s*(.*)", raw)
-        if not match:
+        matches = list(timestamp_pattern.finditer(raw))
+        if not matches:
             continue
-        minutes = int(match.group(1))
-        seconds = float(match.group(2))
-        text = match.group(3).strip()
-        lines.append(
-            {
-                "start_time": minutes * 60 + seconds,
-                "line": text,
-            }
-        )
+        text = raw[matches[-1].end():].strip()
+        for match in matches:
+            minutes = int(match.group(1))
+            seconds = float(match.group(2))
+            lines.append(
+                {
+                    "start_time": minutes * 60 + seconds,
+                    "line": text,
+                }
+            )
     return lines
 
 
