@@ -2,6 +2,27 @@
 
 **A new way to listen to music** - Desktop application for audio track separation with real-time playback controls and song structure visualization.
 
+## 🚀 Project Status
+
+**Frontend MVP**: ✅ **COMPLETE** - Fully functional UI with all features
+**Backend**: 🔄 **In Progress** - API structure ready, Demucs integration pending
+**Integration**: ⏳ **Next Phase** - Connect frontend to backend
+
+### What's Working Now:
+- ✅ Complete UI with all playback controls
+- ✅ Interactive waveform visualization
+- ✅ Stem management (mute, solo, volume, pan)
+- ✅ Dynamic track reordering
+- ✅ AI insights panel
+- ✅ File upload interface
+- ✅ Simulated playback
+
+### Coming Next:
+- ⏳ Real audio file processing (Demucs)
+- ⏳ Actual audio playback (Web Audio API)
+- ⏳ Backend API integration
+- ⏳ Export separated stems
+
 ## Features
 
 - 🎵 Local ML-powered audio track separation using Demucs
@@ -182,6 +203,34 @@ Backend API docs available at: http://localhost:8000/docs
 ## License
 
 MIT
+
+## 📚 Documentation
+
+### Frontend Documentation
+- **[FRONTEND_GUIDE.md](frontend/FRONTEND_GUIDE.md)** - Comprehensive component documentation, state management, backend integration guide
+- **[PROJECT_SUMMARY.md](frontend/PROJECT_SUMMARY.md)** - Quick overview, feature checklist, running instructions
+- **[DEMO_SCRIPT.md](frontend/DEMO_SCRIPT.md)** - Step-by-step guide for demoing the app
+- **[TROUBLESHOOTING.md](frontend/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[README.md](frontend/README.md)** - Frontend developer responsibilities and getting started
+
+### Backend Documentation
+- **[README.md](backend/README.md)** - Backend setup and API endpoints
+
+### General
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Team workflow and git practices
+
+## 🎬 Quick Demo
+
+Want to see the frontend in action?
+
+1. Start the dev server:
+   ```bash
+   cd frontend && npm run dev
+   ```
+
+2. Open http://localhost:5173
+
+3. Follow the [DEMO_SCRIPT.md](frontend/DEMO_SCRIPT.md) to showcase all features
 
 ## Contributing
 
