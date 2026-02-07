@@ -1,0 +1,4 @@
+# Optional Demucs installation (for stem separation)
+# Note: On Python 3.14+, some deps (e.g., lameenc) may be unavailable.
+# If install fails, use Python 3.10–3.13 for separation.
+demucs@git+https://github.com/adefossez/demucs

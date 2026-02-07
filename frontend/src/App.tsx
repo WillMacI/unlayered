@@ -3,17 +3,20 @@ import { PlaybackHeader } from './components/PlaybackHeader';
 import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
 import { AIInsights } from './components/AIInsights';
+import { LyricsAnnotations } from './components/LyricsAnnotations';
 import { FileUpload } from './components/FileUpload';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Toast } from './components/Toast';
 
 import { SongIntro } from './components/SongIntro';
+import { LyricsSearchModal } from './components/LyricsSearchModal';
+import { LyricDetailModal } from './components/LyricDetailModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useSeparation } from './hooks/useSeparation';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
 import { getStemDownloadUrl } from './services/apiClient';
-import type { AudioFile, Stem, PlaybackState } from './types/audio';
+import type { AudioFile, Stem, PlaybackState, SongMetadata, TimedLyricAnnotation } from './types/audio';
 import { mapBackendStemToType } from './types/audio';
 import {
   mockAudioFile,
@@ -23,6 +26,7 @@ import {
   mockSongStructure,
   generateWaveformData,
 } from './utils/mockData';
+import { resolveLyricsSong, searchLyricsSongs, type LyricsSearchResult } from './services/lyricsApi';
 
 // Stem color and label configuration
 const STEM_CONFIG: Record<string, { color: string; label: string; order: number }> = {
@@ -75,6 +79,19 @@ function App() {
   const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [songMeta, setSongMeta] = useState<SongMetadata | null>(null);
+  const [timedLyrics, setTimedLyrics] = useState<TimedLyricAnnotation[]>([]);
+  const [syncedLyrics, setSyncedLyrics] = useState<NonNullable<Stem['lyrics']>>([]);
+  const [lyricsSearchOpen, setLyricsSearchOpen] = useState(false);
+  const [lyricsSearchQuery, setLyricsSearchQuery] = useState('');
+  const [lyricsSearchResults, setLyricsSearchResults] = useState<LyricsSearchResult[]>([]);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
+  const [lyricsSelectionComplete, setLyricsSelectionComplete] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingQuality, setPendingQuality] = useState<number | null>(null);
+  const [selectedTrackName, setSelectedTrackName] = useState<string | null>(null);
+  const [isLyricModalOpen, setIsLyricModalOpen] = useState(false);
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
@@ -166,6 +183,7 @@ function App() {
             hasAudio: true,
             order: config.order,
             audioUrl: getStemDownloadUrl(separationResult.job_id, stemName),
+            lyrics: stemType === 'vocals' && syncedLyrics.length > 0 ? syncedLyrics : undefined,
           };
         });
 
@@ -177,8 +195,8 @@ function App() {
       // The actual duration will be set once stems are loaded
       const newAudioFile: AudioFile = {
         id: separationResult.job_id,
-        name: 'Separated Track',
-        artist: 'Unknown Artist',
+        name: songMeta?.title || selectedTrackName || 'Separated Track',
+        artist: songMeta?.artists?.[0] || 'Unknown Artist',
         duration: 180, // Will be updated when audio loads
         format: 'WAV',
       };
@@ -195,7 +213,7 @@ function App() {
       setAudioFile(newAudioFile);
       setShowIntro(true);
     }
-  }, [separationStage, separationResult]);
+  }, [separationStage, separationResult, syncedLyrics, songMeta, selectedTrackName]);
 
   // Handle separation failure
   useEffect(() => {
@@ -368,11 +386,118 @@ function App() {
     );
   };
 
+  const startPendingSeparation = useCallback(async () => {
+    if (!pendingFile || pendingQuality === null) return;
+    await startSeparation(pendingFile, pendingQuality);
+    setPendingFile(null);
+    setPendingQuality(null);
+  }, [pendingFile, pendingQuality, startSeparation]);
+
+  const handleLyricsModalClose = useCallback(() => {
+    setLyricsSearchOpen(false);
+    setLyricsSelectionComplete(true);
+    void startPendingSeparation();
+  }, [startPendingSeparation]);
+
+  const handleLyricOverlayClick = useCallback(() => {
+    setIsLyricModalOpen(true);
+  }, []);
+
+  const getActiveLyricIndex = useCallback(() => {
+    if (!syncedLyrics.length) return -1;
+    const activeIndex = syncedLyrics.findIndex(
+      (line) => playbackState.currentTime >= line.startTime && playbackState.currentTime < line.endTime
+    );
+
+    if (activeIndex !== -1) return activeIndex;
+
+    if (playbackState.currentTime < syncedLyrics[0].startTime) return 0;
+    if (playbackState.currentTime > syncedLyrics[syncedLyrics.length - 1].endTime) return syncedLyrics.length - 1;
+
+    const nextIndex = syncedLyrics.findIndex((line) => line.startTime > playbackState.currentTime);
+    return nextIndex !== -1 ? nextIndex : syncedLyrics.length - 1;
+  }, [syncedLyrics, playbackState.currentTime]);
+
+  const activeLyricIndex = getActiveLyricIndex();
+  const activeLyricLine = activeLyricIndex >= 0 ? syncedLyrics[activeLyricIndex] : null;
+  const prevLyricLine = activeLyricIndex > 0 ? syncedLyrics[activeLyricIndex - 1] : null;
+  const nextLyricLine = activeLyricIndex + 1 < syncedLyrics.length ? syncedLyrics[activeLyricIndex + 1] : null;
+  const activeAnnotations =
+    timedLyrics.find((line) => line.line === activeLyricLine?.text)?.annotations || [];
+
   const handleFileSelect = async (file: File, quality: number) => {
-    // Start real backend separation
-    await startSeparation(file, quality);
+    const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
+
+    setShowIntro(false);
+    setAudioFile(null);
+    setStems([]);
+    setStemsLoaded(false);
+    setCombinedWaveform([]);
+    setPlaybackState((prev) => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      duration: mockAudioFile.duration,
+    }));
+
+    setTimedLyrics([]);
+    setSyncedLyrics([]);
+    setSongMeta(null);
+    setLyricsSelectionComplete(false);
+    setLyricsSearchQuery(baseName);
+    setLyricsSearchResults([]);
+    setLyricsError(null);
+    setLyricsSearchOpen(true);
+    setPendingFile(file);
+    setPendingQuality(quality);
+    setSelectedTrackName(baseName || file.name);
+
+    resetSeparation();
   };
 
+  const performLyricsSearch = useCallback(async (query: string) => {
+    if (!query.trim()) return;
+    setLyricsLoading(true);
+    setLyricsError(null);
+    try {
+      const results = await searchLyricsSongs(query.trim());
+      setLyricsSearchResults(results);
+    } catch (err) {
+      console.error(err);
+      setLyricsError('Search failed. Check backend connection or token.');
+    } finally {
+      setLyricsLoading(false);
+    }
+  }, []);
+
+  const handleSelectLyricsSong = useCallback(async (result: LyricsSearchResult) => {
+    setLyricsLoading(true);
+    setLyricsError(null);
+    try {
+      const payload = await resolveLyricsSong(result.id);
+      setSongMeta(payload.song);
+      setTimedLyrics(payload.timed_lyrics);
+
+      const syncedLyricsLines = payload.timed_lyrics
+        .filter((line) => line.startTime !== null && line.endTime !== null)
+        .map((line) => ({
+          text: line.line,
+          startTime: line.startTime as number,
+          endTime: line.endTime as number,
+        }));
+
+      setSyncedLyrics(syncedLyricsLines);
+
+      setLyricsSearchOpen(false);
+      setLyricsSelectionComplete(true);
+      await startPendingSeparation();
+    } catch (err) {
+      console.error(err);
+      setLyricsError('Failed to load song data. Try another result.');
+    } finally {
+      setLyricsLoading(false);
+    }
+  }, [startPendingSeparation]);
 
   // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
   const handleToggleMuteByIndex = useCallback((index: number) => {
@@ -424,8 +549,6 @@ function App() {
     setPlaybackState((prev) => ({ ...prev, volume: newVolume }));
   }, [setMasterVolume]);
 
-
-
   // Define keyboard shortcuts - memoized to prevent listener churn
   // Uses playbackStateRef for fresh values without adding to dependency array
   const shortcuts: KeyboardShortcut[] = useMemo(() => [
@@ -468,6 +591,7 @@ function App() {
   const scrollContainers = useRef<Set<HTMLDivElement>>(new Set());
   const isAutoScrolling = useRef(false);
   const userHasScrolled = useRef(false);
+  const hasAutoSearchedLyrics = useRef(false);
 
   const registerScrollRef = useCallback((ref: HTMLDivElement | null) => {
     if (ref) {
@@ -544,6 +668,16 @@ function App() {
     }
   }, [playbackState.isPlaying]);
 
+  useEffect(() => {
+    if (lyricsSearchOpen && !hasAutoSearchedLyrics.current && lyricsSearchQuery.trim()) {
+      hasAutoSearchedLyrics.current = true;
+      performLyricsSearch(lyricsSearchQuery);
+    }
+    if (!lyricsSearchOpen) {
+      hasAutoSearchedLyrics.current = false;
+    }
+  }, [lyricsSearchOpen, lyricsSearchQuery, performLyricsSearch]);
+
   // Show loading screen during separation processing
   const isProcessing = separationStage === 'uploading' || separationStage === 'queued' || separationStage === 'processing';
 
@@ -591,6 +725,17 @@ function App() {
             disabled={isProcessing}
           />
         </div>
+        <LyricsSearchModal
+          isOpen={lyricsSearchOpen}
+          query={lyricsSearchQuery}
+          onQueryChange={setLyricsSearchQuery}
+          onSearch={() => performLyricsSearch(lyricsSearchQuery)}
+          results={lyricsSearchResults}
+          onSelect={handleSelectLyricsSong}
+          onClose={handleLyricsModalClose}
+          isLoading={lyricsLoading}
+          error={lyricsError}
+        />
         {toastMessage && (
           <Toast
             message={toastMessage.message}
@@ -605,15 +750,52 @@ function App() {
   // Show Intro Screen if active
   if (showIntro) {
     return (
-      <SongIntro
-        audioFile={audioFile}
-        onStart={() => setShowIntro(false)}
-      />
+      <>
+        <SongIntro
+          audioFile={audioFile}
+          onStart={() => setShowIntro(false)}
+          albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+          artistImageUrl={songMeta?.artist_image_url}
+          artistName={songMeta?.artists?.[0] || audioFile.artist}
+          isReady={lyricsSelectionComplete}
+          statusText={lyricsSelectionComplete ? 'Ready to Mix' : 'Select the track to load lyrics'}
+        />
+        <LyricsSearchModal
+          isOpen={lyricsSearchOpen}
+          query={lyricsSearchQuery}
+          onQueryChange={setLyricsSearchQuery}
+          onSearch={() => performLyricsSearch(lyricsSearchQuery)}
+          results={lyricsSearchResults}
+          onSelect={handleSelectLyricsSong}
+          onClose={handleLyricsModalClose}
+          isLoading={lyricsLoading}
+          error={lyricsError}
+        />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen flex flex-col font-sans text-white select-none" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <LyricsSearchModal
+        isOpen={lyricsSearchOpen}
+        query={lyricsSearchQuery}
+        onQueryChange={setLyricsSearchQuery}
+        onSearch={() => performLyricsSearch(lyricsSearchQuery)}
+        results={lyricsSearchResults}
+        onSelect={handleSelectLyricsSong}
+        onClose={handleLyricsModalClose}
+        isLoading={lyricsLoading}
+        error={lyricsError}
+      />
+      <LyricDetailModal
+        isOpen={isLyricModalOpen}
+        line={activeLyricLine?.text || ''}
+        prevLine={prevLyricLine?.text}
+        nextLine={nextLyricLine?.text}
+        annotations={activeAnnotations}
+        onClose={() => setIsLyricModalOpen(false)}
+      />
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal
         shortcuts={shortcuts}
@@ -709,6 +891,7 @@ function App() {
                   anySolo={stems.some((s) => s.isSolo)}
                   currentTime={playbackState.currentTime}
                   duration={playbackState.duration}
+                  onLyricClick={stem.type === 'vocals' ? handleLyricOverlayClick : undefined}
                   onToggleMute={handleToggleMute}
                   onToggleSolo={handleToggleSolo}
                   onVolumeChange={handleVolumeChange}
@@ -734,7 +917,19 @@ function App() {
         {/* Right: AI Insights (Sidebar) */}
         {showSidebar && (
           <div className="w-[340px] flex-shrink-0 transition-all duration-300">
-            <AIInsights insight={mockAIInsight} />
+            <div className="h-full flex flex-col gap-4">
+              <div className="flex-1 min-h-0">
+                <AIInsights
+                  insight={mockAIInsight}
+                  title={songMeta?.title}
+                  artist={songMeta?.artists?.[0] || audioFile.artist}
+                  albumName={songMeta?.album_name}
+                  albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+                  artistImageUrl={songMeta?.artist_image_url}
+                />
+              </div>
+              <LyricsAnnotations timedLyrics={timedLyrics} currentTime={playbackState.currentTime} />
+            </div>
           </div>
         )}
       </div>

@@ -255,7 +255,6 @@ export const FileUpload = ({
     );
   }
 
-  // Default upload UI
   return (
     <div
       onDragOver={handleDragOver}

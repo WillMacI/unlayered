@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.separation import router as separation_router
+from app.api.lyrics import router as lyrics_router
 
 
 @asynccontextmanager
@@ -26,7 +27,13 @@ app = FastAPI(
 # Configure CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174", "tauri://localhost"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "tauri://localhost",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +41,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(separation_router)
+app.include_router(lyrics_router)
 
 
 @app.get("/")
