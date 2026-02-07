@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 export type ToastVariant = 'error' | 'success' | 'info';
@@ -31,10 +31,28 @@ const variantStyles: Record<ToastVariant, { bg: string; border: string; icon: ty
 export const Toast = ({ message, variant = 'info', duration = 5000, onClose }: ToastProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const leavingTimeoutRef = useRef<number | null>(null);
 
   const { bg, border, icon: Icon } = variantStyles[variant];
 
+  const handleClose = useCallback(() => {
+    setIsLeaving(true);
+    leavingTimeoutRef.current = window.setTimeout(() => {
+      onClose();
+    }, 300);
+  }, [onClose]);
+
   useEffect(() => {
+    // Reset state when message or variant changes
+    setIsVisible(false);
+    setIsLeaving(false);
+
+    // Clear any existing leaving timeout
+    if (leavingTimeoutRef.current) {
+      clearTimeout(leavingTimeoutRef.current);
+      leavingTimeoutRef.current = null;
+    }
+
     // Animate in
     const showTimer = setTimeout(() => setIsVisible(true), 10);
 
@@ -49,15 +67,11 @@ export const Toast = ({ message, variant = 'info', duration = 5000, onClose }: T
     return () => {
       clearTimeout(showTimer);
       if (dismissTimer) clearTimeout(dismissTimer);
+      if (leavingTimeoutRef.current) {
+        clearTimeout(leavingTimeoutRef.current);
+      }
     };
-  }, [duration]);
-
-  const handleClose = () => {
-    setIsLeaving(true);
-    setTimeout(() => {
-      onClose();
-    }, 300);
-  };
+  }, [message, variant, duration, handleClose]);
 
   return (
     <div

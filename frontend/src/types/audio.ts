@@ -5,7 +5,7 @@ const KNOWN_BACKEND_STEMS = ['vocals', 'drums', 'bass', 'other', 'guitar', 'pian
 export type BackendStemName = typeof KNOWN_BACKEND_STEMS[number];
 
 export function isKnownBackendStem(name: string): name is BackendStemName {
-  return KNOWN_BACKEND_STEMS.includes(name as BackendStemName);
+  return (KNOWN_BACKEND_STEMS as readonly string[]).includes(name);
 }
 
 export function mapBackendStemToType(backendName: string): StemType {

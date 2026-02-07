@@ -17,7 +17,6 @@ import type { AudioFile, Stem, PlaybackState } from './types/audio';
 import { mapBackendStemToType } from './types/audio';
 import {
   mockAudioFile,
-  mockStems,
   mockAIInsight,
   mockCombinedWaveform,
   mockPeaks,
@@ -374,32 +373,6 @@ function App() {
     await startSeparation(file, quality);
   };
 
-  // Fallback for development/testing with mock data
-  const handleFileSelectMock = (file: File, _quality: number) => {
-    console.log('File selected (mock mode):', file);
-
-    setAudioFile(mockAudioFile);
-    setStemsLoaded(false);
-    setCombinedWaveform([]);
-    setPlaybackState((prev) => ({
-      ...prev,
-      isPlaying: false,
-      currentTime: 0,
-      duration: mockAudioFile.duration,
-    }));
-    setStems(mockStems);
-    setShowIntro(true);
-  };
-
-  // Use mock handler if backend is not responding (for development)
-  const handleFileSelectWithFallback = async (file: File, quality: number) => {
-    try {
-      await handleFileSelect(file, quality);
-    } catch (err) {
-      console.warn('Backend not available, using mock data:', err);
-      handleFileSelectMock(file, quality);
-    }
-  };
 
   // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
   const handleToggleMuteByIndex = useCallback((index: number) => {
@@ -612,7 +585,7 @@ function App() {
             </p>
           </div>
           <FileUpload
-            onFileSelect={handleFileSelectWithFallback}
+            onFileSelect={handleFileSelect}
             capabilities={capabilities}
             recommendedQuality={recommendedQuality}
             disabled={isProcessing}

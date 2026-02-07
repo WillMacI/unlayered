@@ -40,7 +40,7 @@ const initialState: UseSeparationState = {
 
 export function useSeparation(): UseSeparationReturn {
   const [state, setState] = useState<UseSeparationState>(initialState);
-  const pollingRef = useRef<number | null>(null);
+  const pollingTimeoutRef = useRef<number | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Fetch capabilities on mount
@@ -75,8 +75,8 @@ export function useSeparation(): UseSeparationReturn {
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
+      if (pollingTimeoutRef.current) {
+        clearTimeout(pollingTimeoutRef.current);
       }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -85,9 +85,9 @@ export function useSeparation(): UseSeparationReturn {
   }, []);
 
   const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
     }
   }, []);
 
@@ -97,7 +97,6 @@ export function useSeparation(): UseSeparationReturn {
     const poll = async () => {
       // Check if aborted before making request
       if (signal.aborted) {
-        stopPolling();
         return;
       }
 
@@ -118,8 +117,12 @@ export function useSeparation(): UseSeparationReturn {
 
         if (jobStatus === 'processing') {
           setState((prev) => ({ ...prev, stage: 'processing' }));
+          // Schedule next poll after this one completes
+          scheduleNextPoll();
+        } else if (jobStatus === 'queued') {
+          // Still queued, keep polling
+          scheduleNextPoll();
         } else if (jobStatus === 'completed') {
-          stopPolling();
           // Fetch the result
           try {
             const result = await getJobResult(jobId, signal);
@@ -139,7 +142,6 @@ export function useSeparation(): UseSeparationReturn {
             }));
           }
         } else if (jobStatus === 'failed') {
-          stopPolling();
           setState((prev) => ({
             ...prev,
             stage: 'failed',
@@ -147,20 +149,25 @@ export function useSeparation(): UseSeparationReturn {
           }));
         }
       } catch (err) {
-        // Ignore abort errors, log others
+        // Ignore abort errors
         if (err instanceof Error && err.name === 'AbortError') {
           return;
         }
-        // Network error during polling - continue polling
+        // Network error during polling - schedule retry
         console.warn('Polling error:', err);
+        scheduleNextPoll();
+      }
+    };
+
+    // Schedule next poll using setTimeout (self-scheduling to avoid overlap)
+    const scheduleNextPoll = () => {
+      if (!signal.aborted) {
+        pollingTimeoutRef.current = window.setTimeout(poll, API_CONFIG.pollingInterval);
       }
     };
 
     // Initial poll
     poll();
-
-    // Set up interval
-    pollingRef.current = window.setInterval(poll, API_CONFIG.pollingInterval);
   }, [stopPolling]);
 
   const startSeparation = useCallback(async (file: File, quality: number) => {

@@ -1,5 +1,5 @@
 import { Upload, FileAudio, Cpu, Zap } from 'lucide-react';
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
 import { QUALITY_PRESETS, type SystemCapabilities } from '../services/apiClient';
@@ -20,7 +20,15 @@ export const FileUpload = ({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState(recommendedQuality);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [userHasSelectedQuality, setUserHasSelectedQuality] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync selectedQuality when recommendedQuality changes (if user hasn't manually selected)
+  useEffect(() => {
+    if (!userHasSelectedQuality && !pendingFile) {
+      setSelectedQuality(recommendedQuality);
+    }
+  }, [recommendedQuality, userHasSelectedQuality, pendingFile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     if (disabled) return;
@@ -122,11 +130,13 @@ export const FileUpload = ({
     if (pendingFile && !disabled) {
       onFileSelect(pendingFile, selectedQuality);
       setPendingFile(null);
+      setUserHasSelectedQuality(false);
     }
   }, [pendingFile, selectedQuality, onFileSelect, disabled]);
 
   const handleCancel = useCallback(() => {
     setPendingFile(null);
+    setUserHasSelectedQuality(false);
   }, []);
 
   // If a file is pending, show quality selection
@@ -160,7 +170,10 @@ export const FileUpload = ({
                 return (
                   <button
                     key={preset.level}
-                    onClick={() => setSelectedQuality(preset.level)}
+                    onClick={() => {
+                      setSelectedQuality(preset.level);
+                      setUserHasSelectedQuality(true);
+                    }}
                     className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
                       isSelected
                         ? 'border-[#D4AF37] bg-[#D4AF37]/10'
