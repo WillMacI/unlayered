@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, useMemo, type MouseEvent } from 'react';
 import type { WaveformPeak, SongSection } from '../types/audio';
 import { StructureMarkers } from './StructureMarkers';
 
@@ -185,7 +185,7 @@ export const WaveformDisplay = ({
   };
 
   // Generate timeline markers
-  const generateTimelineMarkers = () => {
+  const timelineMarkers = useMemo(() => {
     const markers = [];
     if (duration <= 0) return markers;
     const interval = 30; // 30 second intervals
@@ -197,9 +197,7 @@ export const WaveformDisplay = ({
       markers.push({ time: i, label, position });
     }
     return markers;
-  };
-
-  const timelineMarkers = generateTimelineMarkers();
+  }, [duration]);
 
   return (
     <div

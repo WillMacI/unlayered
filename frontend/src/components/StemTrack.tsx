@@ -2,6 +2,7 @@ import { useState, type UIEvent } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
+import type { WaveformDisplayProps } from './WaveformDisplay';
 import { LyricsOverlay } from './LyricsOverlay';
 
 interface StemTrackProps {
@@ -19,6 +20,24 @@ interface StemTrackProps {
   onInteract?: () => void;
   setScrollRef?: (ref: HTMLDivElement | null) => void;
 }
+
+const getWaveformDataForView = (
+  data: WaveformDisplayProps['waveformData'],
+  viewMode: 'mono' | 'stereo'
+): WaveformDisplayProps['waveformData'] => {
+  if (viewMode === 'stereo') {
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return data.left;
+};
 
 export const StemTrack = ({
   stem,
@@ -96,7 +115,7 @@ export const StemTrack = ({
           <LyricsOverlay lyrics={stem.lyrics} currentTime={currentTime} />
         )}
         <WaveformDisplay
-          waveformData={viewMode === 'stereo' && typeof stem.waveformData === 'object' && !Array.isArray(stem.waveformData) ? stem.waveformData : (Array.isArray(stem.waveformData) ? stem.waveformData : stem.waveformData.left)} // Fallback to left channel if mono requested but data is stereo, or just pass data if it matches
+          waveformData={getWaveformDataForView(stem.waveformData, viewMode)}
           currentTime={currentTime}
           duration={duration}
           peaks={[]}
