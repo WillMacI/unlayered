@@ -57,7 +57,7 @@ async function fetchFromMusicBrainz(artistName: string): Promise<string | null> 
     if (resourceUrl.includes('commons.wikimedia.org/wiki/File:')) {
       const filename = resourceUrl.split('File:')[1];
       if (filename) {
-        return `https://commons.wikimedia.org/wiki/Special:FilePath/${filename}`;
+        return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}`;
       }
     }
 
