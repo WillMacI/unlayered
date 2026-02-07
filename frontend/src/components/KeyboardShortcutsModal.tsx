@@ -143,7 +143,7 @@ export const KeyboardShortcutsModal = ({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-700 bg-slate-800/50">
           <p className="text-xs text-slate-500 text-center">
-            Press <kbd className="px-2 py-1 bg-slate-700 rounded text-slate-300">?</kbd>{' '}
+            Press <kbd className="px-2 py-1 bg-slate-700 rounded text-slate-300">Shift+?</kbd>{' '}
             to toggle this help modal
           </p>
         </div>

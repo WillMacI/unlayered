@@ -575,6 +575,7 @@ function App() {
                 <StemTrack
                   key={stem.id}
                   stem={stem}
+                  anySolo={stems.some((s) => s.isSolo)}
                   currentTime={playbackState.currentTime}
                   duration={playbackState.duration}
                   onToggleMute={handleToggleMute}

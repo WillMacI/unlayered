@@ -7,6 +7,7 @@ import { LyricsOverlay } from './LyricsOverlay';
 
 interface StemTrackProps {
   stem: Stem;
+  anySolo: boolean;
   currentTime: number;
   duration: number;
   onToggleMute: (stemId: string) => void;
@@ -41,6 +42,7 @@ const getWaveformDataForView = (
 
 export const StemTrack = ({
   stem,
+  anySolo,
   currentTime,
   duration,
   onToggleMute,
@@ -56,6 +58,7 @@ export const StemTrack = ({
 }: StemTrackProps) => {
   /* Tooltip logic removed for cleaner UI */
   const [viewMode, setViewMode] = useState<'mono' | 'stereo'>('mono');
+  const effectiveMuted = stem.isMuted || (anySolo && !stem.isSolo);
 
   const formatPan = (value: number) => {
     if (value === 0) return 'C';
@@ -66,7 +69,7 @@ export const StemTrack = ({
 
   return (
     <div
-      className={`relative group px-5 py-4 flex items-center gap-6 transition-colors duration-200 border-b ${stem.isMuted || !stem.hasAudio ? 'opacity-50 grayscale' : ''}`}
+      className={`relative group px-5 py-4 flex items-center gap-6 transition-colors duration-200 border-b ${effectiveMuted || !stem.hasAudio ? 'opacity-50 grayscale' : ''}`}
       style={{
         backgroundColor: stem.isSolo ? 'rgba(212, 175, 55, 0.05)' : 'transparent',
         borderColor: 'var(--border-subtle)',
