@@ -4,10 +4,19 @@ import type { AudioFile, Stem, AIInsight, WaveformPeak, SongSection } from '../t
 export const generateWaveformData = (length: number = 1000, complexity: number = 1): number[] => {
   const data: number[] = [];
   for (let i = 0; i < length; i++) {
-    const value = Math.sin(i / 20) * 0.5 +
-      Math.sin(i / 10) * 0.3 * complexity +
-      Math.random() * 0.2;
-    data.push(Math.abs(value));
+    // Create an "envelope" using low frequency oscillators
+    const envelope = Math.abs(Math.sin(i * 0.01) * 0.5 + Math.cos(i * 0.05) * 0.3 + 0.2);
+
+    // Add high-frequency "noise" (audio content)
+    const noise = Math.random();
+
+    // Combine and scale by complexity
+    const value = envelope * noise * complexity;
+
+    // Add erratic peaks (simulating transients)
+    const transient = Math.random() > 0.95 ? Math.random() * 0.5 : 0;
+
+    data.push(Math.min(1, Math.abs(value + transient)));
   }
   return data;
 };

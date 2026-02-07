@@ -30,6 +30,7 @@ function App() {
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [stemsLoaded, setStemsLoaded] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus | null>(null);
+  const [combinedWaveform, setCombinedWaveform] = useState<number[]>(mockCombinedWaveform);
 
   // Initialize audio engine
   const {
@@ -45,6 +46,7 @@ function App() {
     duration: audioDuration,
     isLoading: audioLoading,
     error: audioError,
+    getWaveformData,
   } = useAudioEngine();
 
   // Sync audio time to UI
@@ -67,10 +69,47 @@ function App() {
       if (stemsWithAudio.length > 0) {
         loadAudioStems(stems).then(() => {
           setStemsLoaded(true);
+
+          // Generate real waveforms from loaded buffers
+          setStems(prevStems => {
+            const updatedStems = prevStems.map(stem => {
+              if (stem.audioUrl) {
+                // Generate 1000 points for accurate visualization
+                const realWaveform = getWaveformData(stem.id, 1000);
+                if (realWaveform.length > 0 && realWaveform.some(v => v > 0)) {
+                  return { ...stem, waveformData: realWaveform };
+                }
+              }
+              return stem;
+            });
+
+            // Calculate combined waveform (average of all active stems)
+            const length = 1000;
+            const combined = new Array(length).fill(0);
+            let activeCount = 0;
+
+            updatedStems.forEach(stem => {
+              if (stem.waveformData && stem.waveformData.length === length) {
+                activeCount++;
+                for (let i = 0; i < length; i++) {
+                  combined[i] += stem.waveformData[i];
+                }
+              }
+            });
+
+            if (activeCount > 0) {
+              // Normalize combined waveform
+              const max = Math.max(...combined) || 1;
+              const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
+              setCombinedWaveform(normalizedCombined);
+            }
+
+            return updatedStems;
+          });
         });
       }
     }
-  }, [audioFile, stemsLoaded, loadAudioStems]);
+  }, [audioFile, stemsLoaded, loadAudioStems, getWaveformData]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // Note: stems is intentionally not in dependencies to prevent reloading on volume/mute changes
@@ -393,7 +432,7 @@ function App() {
               </div>
             </div>
             <WaveformDisplay
-              waveformData={mockCombinedWaveform}
+              waveformData={combinedWaveform}
               currentTime={playbackState.currentTime}
               duration={playbackState.duration}
               peaks={mockPeaks}

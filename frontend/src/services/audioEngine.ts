@@ -282,6 +282,39 @@ export class AudioEngine {
   /**
    * Clean up all resources
    */
+  /**
+   * Get waveform data for a specific stem
+   * Returns normalized array of peaks (0-1)
+   */
+  getWaveformData(stemId: string, samples: number = 200): number[] {
+    const stem = this.stems.get(stemId);
+    if (!stem || !stem.buffer) {
+      return new Array(samples).fill(0);
+    }
+
+    const channelData = stem.buffer.getChannelData(0); // Use first channel
+    const step = Math.floor(channelData.length / samples);
+    const waveform: number[] = [];
+
+    for (let i = 0; i < samples; i++) {
+      const start = i * step;
+      const end = start + step;
+      let sum = 0;
+
+      // Calculate RMS for this chunk
+      for (let j = start; j < end; j++) {
+        sum += channelData[j] * channelData[j];
+      }
+
+      const rms = Math.sqrt(sum / step);
+      waveform.push(rms);
+    }
+
+    // Normalize to 0-1 range (amplified slightly for visibility)
+    const max = Math.max(...waveform) || 1;
+    return waveform.map(val => Math.min(1, (val / max) * 1.5));
+  }
+
   cleanup(): void {
     // Stop playback first
     if (this.isPlaying) {
