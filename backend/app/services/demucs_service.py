@@ -2,28 +2,21 @@
 from pathlib import Path
 from typing import Dict, List
 import torch
-from demucs.pretrained import get_model
+import demucs.api
 
 
 class DemucsService:
     """Service for separating audio tracks using Demucs"""
 
-    def __init__(self, model_name: str = "htdemucs", use_gpu: bool = True):
-        self.model_name = model_name
-        self.device = "cuda" if use_gpu and torch.cuda.is_available() else "cpu"
-        self.model = None
+    def __init__(self):
+        self.separater = demucs.api.Separator()
 
-    def load_model(self):
-        """Load the Demucs model"""
-        if self.model is None:
-            self.model = get_model(self.model_name)
-            self.model.to(self.device)
 
     async def separate_audio(
         self,
         input_path: Path,
         output_dir: Path,
-        job_id: str
+        song_id: str
     ) -> Dict[str, Path]:
         """
         Separate an audio file into stems
@@ -36,21 +29,18 @@ class DemucsService:
         Returns:
             Dictionary mapping stem names to output file paths
         """
-        self.load_model()
 
-        # TODO: Implement actual separation
-        # For now, return placeholder paths
-        stems = ["vocals", "drums", "bass", "other"]
-        return {
-            stem: output_dir / job_id / f"{stem}.wav"
-            for stem in stems
-        }
+        
+        origin, separated = self.separater.separate_audio_file(input_path)
+        stem_to_path = {}
+        for file, sources in separated:
+            for stem, source in sources.items():
+                path = self.save_audio(source, stem, file, output_dir, song_id)
+                stem_to_path[stem] = path
+        return stem_to_path
 
-    def get_available_models(self) -> List[str]:
-        """Get list of available Demucs models"""
-        return [
-            "htdemucs",  # Hybrid Transformer Demucs (default)
-            "htdemucs_ft",  # Fine-tuned version
-            "htdemucs_6s",  # 6-stem separation
-            "mdx_extra",  # Extra quality model
-        ]
+    def save_audio(self, source, stem, file, output_dir, song_id):
+        path = Path(output_dir, song_id, f"{stem}_{file}")
+        demucs.api.save_audio(source, path, samplerate=self.separater.samplerate)
+        return path
+
