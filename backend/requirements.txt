@@ -5,8 +5,8 @@ python-multipart==0.0.12
 
 # Audio Processing
 demucs==4.0.1
-torch==2.5.1
-torchaudio==2.5.1
+torch==2.10.0
+torchaudio==2.10.0
 librosa==0.10.2
 soundfile==0.12.1
 pydub==0.25.1

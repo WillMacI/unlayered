@@ -2,6 +2,7 @@
 from pathlib import Path
 from typing import Dict, List
 import torch
+from demucs.pretrained import get_model
 
 
 class DemucsService:
@@ -15,11 +16,8 @@ class DemucsService:
     def load_model(self):
         """Load the Demucs model"""
         if self.model is None:
-            # TODO: Implement actual model loading
-            # from demucs.pretrained import get_model
-            # self.model = get_model(self.model_name)
-            # self.model.to(self.device)
-            pass
+            self.model = get_model(self.model_name)
+            self.model.to(self.device)
 
     async def separate_audio(
         self,
