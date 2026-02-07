@@ -118,7 +118,7 @@ async def upload_audio(
             logger.info(f"Validated audio file: {info.samplerate}Hz, {info.channels} channels, {info.duration:.1f}s")
         # For MP3 and other formats, do basic file size check
         # (Demucs will validate properly using ffmpeg during processing)
-        elif file_ext in ['.mp3', '.m4a', '.aac']:
+        elif file_ext in ['.mp3', '.m4a', '.aac', '.mp4']:
             file_size = input_path.stat().st_size
             if file_size < 100:  # Suspiciously small
                 raise ValueError(f"File too small ({file_size} bytes) to be valid audio")

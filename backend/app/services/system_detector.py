@@ -7,6 +7,7 @@ import psutil
 from dataclasses import dataclass
 from typing import Optional
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,7 @@ class SystemDetector:
 
 # Global instance for easy access
 _system_capabilities: Optional[SystemCapabilities] = None
+_system_capabilities_lock = threading.Lock()
 
 
 def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False) -> SystemCapabilities:
@@ -226,6 +228,18 @@ def get_system_capabilities(force_refresh: bool = False, force_cpu: bool = False
     )
 
     if should_refresh:
-        _system_capabilities = SystemDetector.detect_capabilities(force_cpu)
+        with _system_capabilities_lock:
+            if (
+                _system_capabilities is None or
+                force_refresh or
+                (force_cpu and _system_capabilities is not None and _system_capabilities.device != "cpu") or
+                (
+                    not force_cpu
+                    and _system_capabilities is not None
+                    and _system_capabilities.device == "cpu"
+                    and torch.cuda.is_available()
+                )
+            ):
+                _system_capabilities = SystemDetector.detect_capabilities(force_cpu)
 
     return _system_capabilities
