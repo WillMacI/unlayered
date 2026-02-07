@@ -1,15 +1,23 @@
 """Demucs audio separation service"""
 from pathlib import Path
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import logging
-import torch
 import soundfile as sf
-import numpy as np
 import demucs.api
 
 logger = logging.getLogger(__name__)
+
+# Shared thread pool executor for async operations
+_executor: Optional[asyncio.ThreadPoolExecutor] = None
+
+
+def get_executor() -> asyncio.ThreadPoolExecutor:
+    """Get or create the shared thread pool executor."""
+    global _executor
+    if _executor is None:
+        _executor = asyncio.ThreadPoolExecutor(max_workers=2)
+    return _executor
 
 
 class DemucsService:
@@ -21,8 +29,7 @@ class DemucsService:
         device: str = "cuda",
         segment: Optional[int] = None,
         shifts: int = 1,
-        overlap: float = 0.25,
-        progress_callback: Optional[Callable[[float], None]] = None
+        overlap: float = 0.25
     ):
         """
         Initialize Demucs service with configurable parameters.
@@ -33,14 +40,12 @@ class DemucsService:
             segment: Segment size for memory-constrained systems (None = full song)
             shifts: Quality parameter (1=fast, 2-5=higher quality)
             overlap: Overlap between segments (0.25 = 25%)
-            progress_callback: Optional callback for progress updates
         """
         self.model_name = model
         self.device = device
         self.segment = segment
         self.shifts = shifts
         self.overlap = overlap
-        self.progress_callback = progress_callback
 
         logger.info(
             f"Initializing DemucsService: model={model}, device={device}, "
@@ -67,7 +72,7 @@ class DemucsService:
         input_path: Path,
         output_dir: Path,
         job_id: str
-    ) -> Dict[str, Path]:
+    ) -> Dict[str, Optional[Path]]:
         """
         Separate an audio file into stems.
 
@@ -77,7 +82,7 @@ class DemucsService:
             job_id: Unique job identifier
 
         Returns:
-            Dictionary mapping stem names to output file paths
+            Dictionary mapping stem names to output file paths (None for unavailable stems)
         """
         logger.info(f"Starting separation for job {job_id}: {input_path}")
 
@@ -86,15 +91,14 @@ class DemucsService:
         job_output_dir.mkdir(parents=True, exist_ok=True)
 
         # Run separation in thread pool to avoid blocking event loop
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            stem_to_path = await loop.run_in_executor(
-                executor,
-                self._separate_sync,
-                input_path,
-                job_output_dir,
-                job_id
-            )
+        loop = asyncio.get_running_loop()
+        stem_to_path = await loop.run_in_executor(
+            get_executor(),
+            self._separate_sync,
+            input_path,
+            job_output_dir,
+            job_id
+        )
 
         logger.info(f"Separation completed for job {job_id}: {len(stem_to_path)} stems")
         return stem_to_path
@@ -104,7 +108,7 @@ class DemucsService:
         input_path: Path,
         output_dir: Path,
         job_id: str
-    ) -> Dict[str, Path]:
+    ) -> Dict[str, Optional[Path]]:
         """
         Synchronous separation (runs in thread pool).
 
@@ -114,7 +118,7 @@ class DemucsService:
             job_id: Unique job identifier
 
         Returns:
-            Dictionary mapping stem names to output file paths
+            Dictionary mapping stem names to output file paths (None for unavailable stems)
         """
         try:
             # Run Demucs separation
@@ -153,18 +157,18 @@ class DemucsService:
             logger.error(f"Error during separation: {e}")
             raise
 
-    def map_stems_to_frontend(self, stems: Dict[str, Path]) -> Dict[str, Path]:
+    def map_stems_to_frontend(self, stems: Dict[str, Path]) -> Dict[str, Optional[Path]]:
         """
         Map Demucs stem names to frontend expected format.
 
-        For 4-stem models: vocals, drums, bass, other
+        For 4-stem models: vocals, drums, bass, other (guitar/piano = None)
         For 6-stem models: vocals, drums, bass, guitar, piano, other
 
         Args:
             stems: Dictionary of stem_name -> file_path from Demucs
 
         Returns:
-            Mapped dictionary for frontend
+            Mapped dictionary for frontend (None values for unavailable stems)
         """
         # Check if this is a 6-stem model
         is_6_stem = "guitar" in stems or "piano" in stems

@@ -34,7 +34,7 @@ class Job:
     completed_at: Optional[datetime] = None
     input_path: Optional[str] = None
     output_dir: Optional[str] = None
-    stems: Optional[Dict[str, str]] = None  # stem_name -> file_path
+    stems: Optional[Dict[str, Optional[str]]] = None  # stem_name -> Optional[file_path], None if unavailable
     error_message: Optional[str] = None
     processing_time: Optional[float] = None  # seconds
 

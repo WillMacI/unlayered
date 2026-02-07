@@ -163,7 +163,7 @@ class SystemDetector:
         if model == "htdemucs_6s":
             if not capabilities.has_gpu:
                 return False, "6-stem model requires GPU, but system has CPU only"
-            if capabilities.gpu_memory_gb < 6.0:
+            if capabilities.gpu_memory_gb < 7.0:
                 return False, f"6-stem model requires 7GB+ VRAM, system has {capabilities.gpu_memory_gb:.1f}GB"
 
         # Check if fine-tuned model is requested on CPU

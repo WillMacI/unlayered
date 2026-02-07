@@ -84,8 +84,10 @@ async def upload_audio(
     job_upload_dir = settings.upload_dir / job_id
     job_upload_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save uploaded file
-    input_path = job_upload_dir / file.filename
+    # Save uploaded file with sanitized filename (prevent path traversal)
+    # Use only the basename to prevent directory traversal attacks
+    safe_filename = Path(file.filename).name if file.filename else "upload"
+    input_path = job_upload_dir / safe_filename
     try:
         with open(input_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -113,7 +115,7 @@ async def upload_audio(
     # Create job
     job = Job(
         job_id=job_id,
-        filename=file.filename,
+        filename=safe_filename,
         status=JobStatus.QUEUED,
         model_used=selected_model,
         created_at=datetime.now(),
@@ -139,7 +141,7 @@ async def upload_audio(
 
     return JobResponse(
         job_id=job_id,
-        filename=file.filename,
+        filename=safe_filename,
         status=job.status,
         progress=0.0,
         error=None
@@ -266,7 +268,7 @@ async def get_result(job_id: str):
     if job.status != JobStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
-            detail=f"Job not completed. Current status: {job.status}"
+            detail=f"Job not completed. Current status: {job.status.value}"
         )
 
     if job.stems is None:
@@ -300,7 +302,7 @@ async def download_stem(job_id: str, stem_name: str):
     if job.status != JobStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
-            detail=f"Job not completed. Current status: {job.status}"
+            detail=f"Job not completed. Current status: {job.status.value}"
         )
 
     if job.stems is None or stem_name not in job.stems:
