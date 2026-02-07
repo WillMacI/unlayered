@@ -9,8 +9,11 @@ import lyricsgenius
 from app.config import settings
 from app.utils.lyrics import flatten_dom, normalize, build_timed_annotations
 
+import logging
+
 
 router = APIRouter(prefix="/api/lyrics", tags=["lyrics"])
+logger = logging.getLogger(__name__)
 
 
 class SearchResult(BaseModel):
@@ -183,12 +186,13 @@ def resolve_song(song_id: int) -> Dict[str, Any]:
         lrc_len = len(lrc_text.splitlines()) if lrc_text else 0
     except Exception:
         lrc_len = 0
-    print(
-        f"[lyrics] song_id={mapped_song.get('id')} "
-        f"lrc_lines={lrc_len} "
-        f"lyrics_text={'yes' if lyrics_text else 'no'} "
-        f"fragments={len(fragment_annotations)} "
-        f"timed={len(timed_annotated_lyrics)}"
+    logger.info(
+        "[lyrics] song_id=%s lrc_lines=%s lyrics_text=%s fragments=%s timed=%s",
+        mapped_song.get("id"),
+        lrc_len,
+        "yes" if lyrics_text else "no",
+        len(fragment_annotations),
+        len(timed_annotated_lyrics),
     )
 
     return {

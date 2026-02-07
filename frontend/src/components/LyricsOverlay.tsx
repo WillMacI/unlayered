@@ -36,8 +36,9 @@ export const LyricsOverlay = ({ lyrics, currentTime, onLineClick }: LyricsOverla
 
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex items-center pl-6 bg-gradient-to-r from-black/70 via-black/30 to-transparent">
-            <div
-                className="flex flex-col gap-0.5 items-start max-w-xl pointer-events-auto cursor-pointer"
+            <button
+                type="button"
+                className="flex flex-col gap-0.5 items-start max-w-xl pointer-events-auto cursor-pointer text-left"
                 onClick={() =>
                     onLineClick?.({
                         index: targetIndex,
@@ -76,7 +77,7 @@ export const LyricsOverlay = ({ lyrics, currentTime, onLineClick }: LyricsOverla
                         {nextLine.text}
                     </motion.div>
                 )}
-            </div>
+            </button>
         </div>
     );
 };

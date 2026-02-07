@@ -30,5 +30,19 @@ export async function resolveLyricsSong(songId: number): Promise<LyricsResolveRe
   if (!resp.ok) {
     throw new Error(`Resolve failed: ${resp.status}`);
   }
-  return resp.json();
+  const raw = await resp.json();
+  const normalizedTimedLyrics = Array.isArray(raw.timed_lyrics)
+    ? raw.timed_lyrics.map((entry: any): TimedLyricAnnotation => {
+        const { start_time, end_time, ...rest } = entry || {};
+        return {
+          ...rest,
+          startTime: start_time ?? entry?.startTime ?? null,
+          endTime: end_time ?? entry?.endTime ?? null,
+        };
+      })
+    : [];
+  return {
+    ...raw,
+    timed_lyrics: normalizedTimedLyrics,
+  };
 }
