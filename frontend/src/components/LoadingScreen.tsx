@@ -42,7 +42,7 @@ export const LoadingScreen = ({
       className={`min-h-screen bg-slate-900 flex items-center justify-center transition-opacity duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'
         }`}
     >
-      <div className="max-w-2xl w-full px-8">
+      <div className="relative max-w-2xl w-full px-8">
         {/* Artist Image / Placeholder */}
         <div className="relative mb-8 rounded-2xl overflow-hidden shadow-2xl">
           {artistImage ? (

@@ -92,7 +92,7 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
   const loadStems = useCallback(async (stems: Stem[]) => {
     if (!engineRef.current) {
       setError('Audio engine not initialized');
-      return;
+      throw new Error('Audio engine not initialized');
     }
 
     setIsLoading(true);
@@ -131,6 +131,7 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
       }
       setIsLoading(false);
       console.error('Stem loading error:', err);
+      throw err;
     }
   }, []);
 

@@ -122,7 +122,12 @@ export const PlaybackHeader = ({
           {showSidebar ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
         </button>
 
-        <button className="p-2 hover:bg-white/10 rounded-lg transition-colors text-neutral-400 hover:text-white">
+        <button
+          className="p-2 rounded-lg transition-colors text-neutral-600 cursor-not-allowed"
+          disabled
+          aria-disabled="true"
+          title="Repeat not available yet"
+        >
           <Repeat className="w-4 h-4" />
         </button>
       </div>

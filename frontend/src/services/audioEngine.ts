@@ -292,19 +292,20 @@ export class AudioEngine {
    * Returns normalized array of peaks (0-1)
    */
   getWaveformData(stemId: string, samples: number = 200): number[] {
+    const safeSamples = Math.max(0, Math.floor(samples));
+    if (safeSamples === 0) return [];
     const stem = this.stems.get(stemId);
     if (!stem || !stem.buffer) {
-      return new Array(samples).fill(0);
+      return new Array(safeSamples).fill(0);
     }
 
     const channelData = stem.buffer.getChannelData(0); // Use first channel
-    if (samples <= 0) return [];
-    if (channelData.length === 0) return new Array(samples).fill(0);
+    if (channelData.length === 0) return new Array(safeSamples).fill(0);
     // Use fractional step so we don't read past the buffer for short data
-    const step = channelData.length / samples;
+    const step = channelData.length / safeSamples;
     const waveform: number[] = [];
 
-    for (let i = 0; i < samples; i++) {
+    for (let i = 0; i < safeSamples; i++) {
       const start = Math.floor(i * step);
       if (start >= channelData.length) {
         waveform.push(0);
@@ -334,22 +335,23 @@ export class AudioEngine {
    * Get stereo waveform data (left and right channels)
    */
   getStereoWaveformData(stemId: string, samples: number = 200): { left: number[], right: number[] } {
+    const safeSamples = Math.max(0, Math.floor(samples));
+    if (safeSamples === 0) return { left: [], right: [] };
     const stem = this.stems.get(stemId);
     if (!stem || !stem.buffer) {
-      return { left: new Array(samples).fill(0), right: new Array(samples).fill(0) };
+      return { left: new Array(safeSamples).fill(0), right: new Array(safeSamples).fill(0) };
     }
 
     const processChannel = (channelIndex: number): number[] => {
       // If buffer is mono, use channel 0 for both
       const idx = Math.min(channelIndex, stem.buffer!.numberOfChannels - 1);
       const channelData = stem.buffer!.getChannelData(idx);
-      if (samples <= 0) return [];
-      if (channelData.length === 0) return new Array(samples).fill(0);
+      if (channelData.length === 0) return new Array(safeSamples).fill(0);
       // Use fractional step so we don't read past the buffer for short data
-      const step = channelData.length / samples;
+      const step = channelData.length / safeSamples;
       const waveform: number[] = [];
 
-      for (let i = 0; i < samples; i++) {
+      for (let i = 0; i < safeSamples; i++) {
         const start = Math.floor(i * step);
         if (start >= channelData.length) {
           waveform.push(0);

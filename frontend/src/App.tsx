@@ -82,67 +82,84 @@ function App() {
 
   // Load stems when audio file is set (only once)
   useEffect(() => {
-    if (audioFile && !stemsLoaded && stems.length > 0) {
-      // Check if any stems have audio URLs (for real audio)
-      const stemsWithAudio = stems.filter((s) => s.audioUrl);
-      if (stemsWithAudio.length > 0) {
-        loadAudioStems(stems).then(() => {
-          setStemsLoaded(true);
+    if (!audioFile || stemsLoaded || stems.length === 0) return;
 
-          // Generate real waveforms from loaded buffers
-          setStems(prevStems => {
-            const updatedStems = prevStems.map(stem => {
-              if (stem.audioUrl) {
-                // Generate 2000 points for detailed stereo visualization
-                const realWaveform = getStereoWaveformData(stem.id, 2000);
-                // Real waveform comes back as { left: [], right: [] } always from our new method helper
-                // Check if it has data
-                if (realWaveform.left.length > 0 && realWaveform.left.some(v => v > 0)) {
-                  return { ...stem, waveformData: realWaveform };
-                }
+    // Check if any stems have audio URLs (for real audio)
+    const stemsWithAudio = stems.filter((s) => s.audioUrl);
+    if (stemsWithAudio.length === 0) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        await loadAudioStems(stems);
+        if (cancelled) return;
+
+        setStemsLoaded(true);
+
+        // Generate real waveforms from loaded buffers
+        setStems(prevStems => {
+          const updatedStems = prevStems.map(stem => {
+            if (stem.audioUrl) {
+              // Generate 2000 points for detailed stereo visualization
+              const realWaveform = getStereoWaveformData(stem.id, 2000);
+              // Real waveform comes back as { left: [], right: [] } always from our new method helper
+              // Check if it has data
+              if (realWaveform.left.length > 0 && realWaveform.left.some(v => v > 0)) {
+                return { ...stem, waveformData: realWaveform };
               }
-              return stem;
-            });
+            }
+            return stem;
+          });
 
-            // Calculate combined waveform (average of all active stems)
-            const length = 2000;
-            const combined = new Array(length).fill(0);
-            let activeCount = 0;
+          // Calculate combined waveform (average of all active stems)
+          const length = 2000;
+          const combined = new Array(length).fill(0);
+          let activeCount = 0;
 
-            updatedStems.forEach(stem => {
-              // Handle both mono and stereo structures for the combined view logic
-              let dataToAdd: number[] = [];
-              if (Array.isArray(stem.waveformData)) {
-                if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
-              } else {
-                // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
-                const stereoData = stem.waveformData as { left: number[], right: number[] };
-                if (stereoData.left.length === length) {
-                  // Simple mono mixdown for visualization
-                  dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
-                }
+          updatedStems.forEach(stem => {
+            // Handle both mono and stereo structures for the combined view logic
+            let dataToAdd: number[] = [];
+            if (Array.isArray(stem.waveformData)) {
+              if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
+            } else {
+              // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
+              const stereoData = stem.waveformData as { left: number[], right: number[] };
+              if (stereoData.left.length === length) {
+                // Simple mono mixdown for visualization
+                dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
               }
-
-              if (dataToAdd.length === length) {
-                activeCount++;
-                for (let i = 0; i < length; i++) {
-                  combined[i] += dataToAdd[i];
-                }
-              }
-            });
-
-            if (activeCount > 0) {
-              // Normalize combined waveform
-              const max = Math.max(...combined) || 1;
-              const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
-              setCombinedWaveform(normalizedCombined);
             }
 
-            return updatedStems;
+            if (dataToAdd.length === length) {
+              activeCount++;
+              for (let i = 0; i < length; i++) {
+                combined[i] += dataToAdd[i];
+              }
+            }
           });
+
+          if (activeCount > 0) {
+            // Normalize combined waveform
+            const max = Math.max(...combined) || 1;
+            const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
+            setCombinedWaveform(normalizedCombined);
+          }
+
+          return updatedStems;
         });
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('Stem loading failed; will allow retry on next attempt.', err);
+        }
       }
-    }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData, stems]);
 
   // Dynamic track ordering: sort stems by activity
@@ -354,14 +371,19 @@ function App() {
   const isAutoScrolling = useRef(false);
   const userHasScrolled = useRef(false);
 
+  const lastRegisteredScrollRef = useRef<HTMLDivElement | null>(null);
+
   const registerScrollRef = useCallback((ref: HTMLDivElement | null) => {
-    if (ref) scrollContainers.current.add(ref);
-    // don't remove nulls here strictly as refs might remount, but good practice to clean up:
-    // We can't easily know which one was removed if passed null, but standard refs callback pattern:
-    // passed null on unmount. We'd need to track it.
-    // For simplicity, we just add. (Set prevents duplicates).
-    // Ideally we'd wrap this component to handle unmount, but for now this is fine
-    // as long as we check if connected in the loop.
+    if (ref) {
+      scrollContainers.current.add(ref);
+      lastRegisteredScrollRef.current = ref;
+      return;
+    }
+
+    if (lastRegisteredScrollRef.current) {
+      scrollContainers.current.delete(lastRegisteredScrollRef.current);
+      lastRegisteredScrollRef.current = null;
+    }
   }, []);
 
   const handleGlobalScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {

@@ -31,6 +31,12 @@ export const KeyboardShortcutsModal = ({
     s.description.includes('Volume')
   );
 
+  const generalShortcuts = shortcuts.filter((shortcut) =>
+    !playbackShortcuts.includes(shortcut)
+    && !stemShortcuts.includes(shortcut)
+    && !volumeShortcuts.includes(shortcut)
+  );
+
   const formatKey = (shortcut: KeyboardShortcut): string => {
     const parts: string[] = [];
 
@@ -121,6 +127,20 @@ export const KeyboardShortcutsModal = ({
               </h3>
               <div className="space-y-2">
                 {volumeShortcuts.map((shortcut, index) => (
+                  <ShortcutRow key={index} shortcut={shortcut} formatKey={formatKey} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* General */}
+          {generalShortcuts.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-slate-400 uppercase mb-3">
+                General
+              </h3>
+              <div className="space-y-2">
+                {generalShortcuts.map((shortcut, index) => (
                   <ShortcutRow key={index} shortcut={shortcut} formatKey={formatKey} />
                 ))}
               </div>
