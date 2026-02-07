@@ -209,12 +209,12 @@ function App() {
   }, [stems]);
 
   const handlePlayPause = useCallback(() => {
-    if (playbackState.isPlaying) {
+    if (playbackStateRef.current.isPlaying) {
       pauseAudio();
     } else {
       playAudio();
     }
-  }, [playbackState.isPlaying, pauseAudio, playAudio]);
+  }, [pauseAudio, playAudio]);
 
   const handleSeek = useCallback((time: number) => {
     seekAudio(time);
