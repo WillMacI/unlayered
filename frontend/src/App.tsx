@@ -108,6 +108,11 @@ function App() {
     setPlaybackState((prev) => ({ ...prev, isPlaying: audioIsPlaying }));
   }, [audioIsPlaying]);
 
+  // Sync master volume to audio engine
+  useEffect(() => {
+    setMasterVolume(playbackState.volume);
+  }, [playbackState.volume, setMasterVolume]);
+
   // Load stems when audio file is set (only once)
   useEffect(() => {
     if (!audioFile || stemsLoaded || stems.length === 0) return;

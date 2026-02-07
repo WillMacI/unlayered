@@ -86,11 +86,11 @@ export const StemTrack = ({
           <div className="flex gap-2 mt-1.5">
             <button
               onClick={() => onToggleMute(stem.id)}
-              className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${stem.isMuted ? 'bg-neutral-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+              className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${effectiveMuted ? 'bg-neutral-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
               title="Mute"
-              aria-label={stem.isMuted ? 'Unmute stem' : 'Mute stem'}
+              aria-label={effectiveMuted ? 'Unmute stem' : 'Mute stem'}
             >
-              {stem.isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+              {effectiveMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={() => onToggleSolo(stem.id)}

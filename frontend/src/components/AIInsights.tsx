@@ -107,7 +107,7 @@ export const AIInsights = ({ insight }: AIInsightsProps) => {
             </div>
           )}
 
-          {insight.tempo && (
+          {insight.tempo !== undefined && insight.tempo !== null && (
             <div className="p-3 rounded-lg bg-white/5 space-y-1">
               <div className="flex items-center gap-2 text-neutral-400">
                 <Gauge className="w-3.5 h-3.5" />
