@@ -65,7 +65,7 @@ class SystemDetector:
 
         # Recommend model and settings based on capabilities
         recommended_model, recommended_segment = SystemDetector._recommend_model_and_settings(
-            has_gpu, gpu_memory_gb, system_memory_gb
+            has_gpu, gpu_memory_gb
         )
 
         # Recommend max concurrent jobs based on resources
@@ -93,8 +93,7 @@ class SystemDetector:
     @staticmethod
     def _recommend_model_and_settings(
         has_gpu: bool,
-        gpu_memory_gb: Optional[float],
-        system_memory_gb: float
+        gpu_memory_gb: Optional[float]
     ) -> tuple[str, Optional[int]]:
         """
         Recommend Demucs model and segment size based on available resources.
@@ -105,6 +104,10 @@ class SystemDetector:
         if not has_gpu:
             # CPU only - use standard model without segmentation (let Demucs decide)
             logger.info("CPU mode: Using htdemucs")
+            return "htdemucs", None
+
+        if gpu_memory_gb is None:
+            logger.warning("GPU detected but VRAM unknown. Using htdemucs.")
             return "htdemucs", None
 
         # GPU available - choose based on VRAM
@@ -141,6 +144,9 @@ class SystemDetector:
             # CPU mode - one job at a time to avoid thrashing
             return 1
 
+        if gpu_memory_gb is None:
+            return 1
+
         if gpu_memory_gb >= 12.0:
             # High-end GPU - can handle 2 concurrent jobs
             return 2
@@ -163,6 +169,8 @@ class SystemDetector:
         if model == "htdemucs_6s":
             if not capabilities.has_gpu:
                 return False, "6-stem model requires GPU, but system has CPU only"
+            if capabilities.gpu_memory_gb is None:
+                return False, "6-stem model requires 7GB+ VRAM, but GPU memory could not be detected"
             if capabilities.gpu_memory_gb < 7.0:
                 return False, f"6-stem model requires 7GB+ VRAM, system has {capabilities.gpu_memory_gb:.1f}GB"
 

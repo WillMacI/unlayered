@@ -13,7 +13,7 @@ async def lifespan(app: FastAPI):
     executor = get_executor()
     yield
     # Shutdown: Clean up resources
-    executor.shutdown(wait=False)
+    executor.shutdown(wait=True)
 
 
 app = FastAPI(

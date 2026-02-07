@@ -30,8 +30,10 @@ ALLOWED_AUDIO_TYPES = {
     "audio/x-flac",
     "audio/ogg",
     "audio/aac",
+    "audio/mp4",
     "audio/m4a",
-    "audio/x-m4a"
+    "audio/x-m4a",
+    "video/mp4"
 }
 
 
@@ -131,11 +133,11 @@ async def upload_audio(
 
     # Check if system is at capacity (enforce max_concurrent_jobs)
     job_store = get_job_store()
-    active_jobs = job_store.count(JobStatus.PROCESSING)
+    active_jobs = job_store.count(JobStatus.PROCESSING) + job_store.count(JobStatus.QUEUED)
     if active_jobs >= capabilities.max_concurrent_jobs:
         raise HTTPException(
             status_code=429,
-            detail=f"System at capacity. Currently processing {active_jobs} job(s). Please try again later."
+            detail=f"System at capacity. Currently queued/processing {active_jobs} job(s). Please try again later."
         )
 
     # Determine which model to use
