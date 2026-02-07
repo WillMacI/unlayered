@@ -1,5 +1,25 @@
 export type StemType = 'vocals' | 'guitar' | 'drums' | 'bass' | 'other';
 
+// Backend stem names from Demucs
+export type BackendStemName = 'vocals' | 'drums' | 'bass' | 'other' | 'guitar' | 'piano';
+
+export function mapBackendStemToType(backendName: BackendStemName): StemType {
+  switch (backendName) {
+    case 'vocals':
+      return 'vocals';
+    case 'drums':
+      return 'drums';
+    case 'bass':
+      return 'bass';
+    case 'guitar':
+      return 'guitar';
+    case 'piano':
+    case 'other':
+    default:
+      return 'other';
+  }
+}
+
 export interface Stem {
   id: string;
   type: StemType;
