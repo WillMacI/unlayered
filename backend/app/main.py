@@ -1,12 +1,26 @@
 """Main FastAPI application"""
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.separation import router as separation_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifecycle (startup/shutdown)."""
+    # Startup: Initialize shared resources
+    from app.services.demucs_service import get_executor
+    executor = get_executor()
+    yield
+    # Shutdown: Clean up resources
+    executor.shutdown(wait=True)
+
+
 app = FastAPI(
     title="Unlayered API",
     description="Audio track separation and analysis service",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Configure CORS for local development

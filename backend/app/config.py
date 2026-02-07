@@ -11,8 +11,13 @@ class Settings(BaseSettings):
     api_port: int = 8000
 
     # Audio Processing
-    demucs_model: str = "htdemucs"  # or "htdemucs_ft" for fine-tuned
     max_file_size: int = 100 * 1024 * 1024  # 100MB
+
+    # Demucs Model Settings
+    demucs_overlap: float = 0.25  # Overlap between segments (used by DemucsService)
+
+    # System Detection
+    force_cpu: bool = False  # Override GPU detection if needed
 
     # Paths
     upload_dir: Path = Path("./uploads")
@@ -20,8 +25,7 @@ class Settings(BaseSettings):
     cache_dir: Path = Path("./cache")
 
     # Performance
-    use_gpu: bool = True
-    max_workers: int = 2
+    max_workers: int = 2  # Thread pool workers for concurrent separation jobs
 
     class Config:
         env_file = ".env"
