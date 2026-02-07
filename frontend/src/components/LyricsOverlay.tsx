@@ -4,9 +4,10 @@ import { motion } from 'framer-motion';
 interface LyricsOverlayProps {
     lyrics: NonNullable<Stem['lyrics']>;
     currentTime: number;
+    onLineClick?: (payload: { index: number; line: string; prevLine?: string | null; nextLine?: string | null }) => void;
 }
 
-export const LyricsOverlay = ({ lyrics, currentTime }: LyricsOverlayProps) => {
+export const LyricsOverlay = ({ lyrics, currentTime, onLineClick }: LyricsOverlayProps) => {
     // Find the active line index
     const activeIndex = lyrics.findIndex(
         (line) => currentTime >= line.startTime && currentTime < line.endTime
@@ -35,7 +36,17 @@ export const LyricsOverlay = ({ lyrics, currentTime }: LyricsOverlayProps) => {
 
     return (
         <div className="absolute inset-0 z-10 pointer-events-none flex items-center pl-6 bg-gradient-to-r from-black/70 via-black/30 to-transparent">
-            <div className="flex flex-col gap-0.5 items-start max-w-xl">
+            <div
+                className="flex flex-col gap-0.5 items-start max-w-xl pointer-events-auto cursor-pointer"
+                onClick={() =>
+                    onLineClick?.({
+                        index: targetIndex,
+                        line: activeLine.text,
+                        prevLine: targetIndex > 0 ? lyrics[targetIndex - 1].text : null,
+                        nextLine: nextLine?.text ?? null,
+                    })
+                }
+            >
                 <motion.div
                     key={`active-${targetIndex}`}
                     initial={{ opacity: 0, y: 10 }}

@@ -10,6 +10,7 @@ interface StemTrackProps {
   anySolo: boolean;
   currentTime: number;
   duration: number;
+  onLyricClick?: (payload: { index: number; line: string; prevLine?: string | null; nextLine?: string | null }) => void;
   onToggleMute: (stemId: string) => void;
   onToggleSolo: (stemId: string) => void;
   onVolumeChange: (stemId: string, volume: number) => void;
@@ -45,6 +46,7 @@ export const StemTrack = ({
   anySolo,
   currentTime,
   duration,
+  onLyricClick,
   onToggleMute,
   onToggleSolo,
   onVolumeChange,
@@ -115,7 +117,11 @@ export const StemTrack = ({
       {/* 2. Waveform (Center - Flex Grow) */}
       <div className="flex-1 min-w-0 relative h-20 flex items-center">
         {stem.lyrics && (
-          <LyricsOverlay lyrics={stem.lyrics} currentTime={currentTime} />
+          <LyricsOverlay
+            lyrics={stem.lyrics}
+            currentTime={currentTime}
+            onLineClick={onLyricClick}
+          />
         )}
         <WaveformDisplay
           waveformData={getWaveformDataForView(stem.waveformData, viewMode)}

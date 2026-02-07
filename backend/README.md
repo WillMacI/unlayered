@@ -9,7 +9,7 @@ Python FastAPI backend for audio track separation using Demucs.
 - That's it!
 
 **Note on Python 3.14:**
-If using Python 3.14, some dependencies may require special handling due to limited wheel availability. The Demucs installation may need modifications (see Setup section).
+If using Python 3.14, some dependencies may require special handling due to limited wheel availability. The Demucs installation may fail due to missing wheels (e.g., `lameenc`). For separation, use Python 3.10–3.13.
 
 **What you DON'T need:**
 - ❌ Node.js (that's for the frontend team)
@@ -35,7 +35,12 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**Note:** `requirements.txt` installs the upstream Demucs package. If you hit install issues on Python 3.14+, try Python 3.10–3.13 or install Demucs separately after `pip install -r requirements.txt`. The backend outputs WAV only, so MP3 encoders like `lameenc` are not required.
+**Optional (Demucs for separation):**
+```bash
+pip install -r requirements-demucs.txt
+```
+
+**Note:** If you hit Demucs install issues on Python 3.14+, use Python 3.10–3.13 for separation.
 
 3. Copy `.env.example` to `.env` and configure:
 ```bash

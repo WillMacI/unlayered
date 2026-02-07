@@ -11,6 +11,7 @@ import { Toast } from './components/Toast';
 
 import { SongIntro } from './components/SongIntro';
 import { LyricsSearchModal } from './components/LyricsSearchModal';
+import { LyricDetailModal } from './components/LyricDetailModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useSeparation } from './hooks/useSeparation';
 import { useKeyboardShortcuts, type KeyboardShortcut } from './hooks/useKeyboardShortcuts';
@@ -90,6 +91,7 @@ function App() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingQuality, setPendingQuality] = useState<number | null>(null);
   const [selectedTrackName, setSelectedTrackName] = useState<string | null>(null);
+  const [isLyricModalOpen, setIsLyricModalOpen] = useState(false);
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
@@ -392,6 +394,32 @@ function App() {
     setLyricsSelectionComplete(true);
     void startPendingSeparation();
   }, [startPendingSeparation]);
+
+  const handleLyricOverlayClick = useCallback(() => {
+    setIsLyricModalOpen(true);
+  }, []);
+
+  const getActiveLyricIndex = useCallback(() => {
+    if (!syncedLyrics.length) return -1;
+    const activeIndex = syncedLyrics.findIndex(
+      (line) => playbackState.currentTime >= line.startTime && playbackState.currentTime < line.endTime
+    );
+
+    if (activeIndex !== -1) return activeIndex;
+
+    if (playbackState.currentTime < syncedLyrics[0].startTime) return 0;
+    if (playbackState.currentTime > syncedLyrics[syncedLyrics.length - 1].endTime) return syncedLyrics.length - 1;
+
+    const nextIndex = syncedLyrics.findIndex((line) => line.startTime > playbackState.currentTime);
+    return nextIndex !== -1 ? nextIndex : syncedLyrics.length - 1;
+  }, [syncedLyrics, playbackState.currentTime]);
+
+  const activeLyricIndex = getActiveLyricIndex();
+  const activeLyricLine = activeLyricIndex >= 0 ? syncedLyrics[activeLyricIndex] : null;
+  const prevLyricLine = activeLyricIndex > 0 ? syncedLyrics[activeLyricIndex - 1] : null;
+  const nextLyricLine = activeLyricIndex + 1 < syncedLyrics.length ? syncedLyrics[activeLyricIndex + 1] : null;
+  const activeAnnotations =
+    timedLyrics.find((line) => line.line === activeLyricLine?.text)?.annotations || [];
 
   const handleFileSelect = async (file: File, quality: number) => {
     const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
@@ -775,6 +803,14 @@ function App() {
         isLoading={lyricsLoading}
         error={lyricsError}
       />
+      <LyricDetailModal
+        isOpen={isLyricModalOpen}
+        line={activeLyricLine?.text || ''}
+        prevLine={prevLyricLine?.text}
+        nextLine={nextLyricLine?.text}
+        annotations={activeAnnotations}
+        onClose={() => setIsLyricModalOpen(false)}
+      />
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal
         shortcuts={shortcuts}
@@ -870,6 +906,7 @@ function App() {
                   anySolo={stems.some((s) => s.isSolo)}
                   currentTime={playbackState.currentTime}
                   duration={playbackState.duration}
+                  onLyricClick={stem.type === 'vocals' ? handleLyricOverlayClick : undefined}
                   onToggleMute={handleToggleMute}
                   onToggleSolo={handleToggleSolo}
                   onVolumeChange={handleVolumeChange}
