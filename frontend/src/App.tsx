@@ -345,32 +345,35 @@ function App() {
   // Define keyboard shortcuts - memoized to prevent listener churn
   // Uses playbackStateRef for fresh values without adding to dependency array
   const shortcuts: KeyboardShortcut[] = useMemo(() => [
-    { key: ' ', action: handlePlayPause, description: 'Play/Pause' },
+    { key: ' ', action: handlePlayPause, description: 'Play/Pause', category: 'playback' },
     {
       key: 'ArrowLeft',
       action: () => handleSeek(Math.max(0, playbackStateRef.current.currentTime - 5)),
       description: 'Seek -5s',
+      category: 'playback',
     },
     {
       key: 'ArrowRight',
       action: () => handleSeek(Math.min(playbackStateRef.current.duration, playbackStateRef.current.currentTime + 5)),
       description: 'Seek +5s',
+      category: 'playback',
     },
-    { key: '1', action: () => handleToggleMuteByIndex(0), description: 'Toggle vocals' },
-    { key: '2', action: () => handleToggleMuteByIndex(1), description: 'Toggle guitar' },
-    { key: '3', action: () => handleToggleMuteByIndex(2), description: 'Toggle drums' },
-    { key: '4', action: () => handleToggleMuteByIndex(3), description: 'Toggle bass' },
-    { key: '5', action: () => handleToggleMuteByIndex(4), description: 'Toggle other' },
-    { key: 'm', action: handleMuteAll, description: 'Mute all' },
-    { key: 's', action: handleSoloActive, description: 'Solo active stem' },
-    { key: '=', action: () => adjustMasterVolume(0.1), description: 'Volume up' },
-    { key: '+', shift: true, action: () => adjustMasterVolume(0.1), description: 'Volume up' },
-    { key: '-', action: () => adjustMasterVolume(-0.1), description: 'Volume down' },
+    { key: '1', action: () => handleToggleMuteByIndex(0), description: 'Toggle vocals', category: 'stem' },
+    { key: '2', action: () => handleToggleMuteByIndex(1), description: 'Toggle guitar', category: 'stem' },
+    { key: '3', action: () => handleToggleMuteByIndex(2), description: 'Toggle drums', category: 'stem' },
+    { key: '4', action: () => handleToggleMuteByIndex(3), description: 'Toggle bass', category: 'stem' },
+    { key: '5', action: () => handleToggleMuteByIndex(4), description: 'Toggle other', category: 'stem' },
+    { key: 'm', action: handleMuteAll, description: 'Mute all', category: 'stem' },
+    { key: 's', action: handleSoloActive, description: 'Solo active stem', category: 'stem' },
+    { key: '=', action: () => adjustMasterVolume(0.1), description: 'Volume up', category: 'volume' },
+    { key: '+', shift: true, action: () => adjustMasterVolume(0.1), description: 'Volume up', category: 'volume' },
+    { key: '-', action: () => adjustMasterVolume(-0.1), description: 'Volume down', category: 'volume' },
     {
       key: '?',
       shift: true,
       action: () => setShowShortcutsModal((prev) => !prev),
       description: 'Show shortcuts',
+      category: 'general',
     },
   ], [handlePlayPause, handleSeek, handleToggleMuteByIndex, handleMuteAll, handleSoloActive, adjustMasterVolume]);
 

@@ -12,6 +12,7 @@ export interface KeyboardShortcut {
   alt?: boolean;
   action: () => void;
   description: string;
+  category?: 'playback' | 'stem' | 'volume' | 'general';
 }
 
 interface UseKeyboardShortcutsOptions {

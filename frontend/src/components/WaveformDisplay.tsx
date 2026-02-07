@@ -234,7 +234,7 @@ export const WaveformDisplay = ({
 
         {/* Label */}
         {label && (
-          <div className="absolute left-2 top-2 px-2 py-1 rounded text-[11px] font-medium z-10 sticky left-2"
+          <div className="absolute left-2 top-2 px-2 py-1 rounded text-[11px] font-medium z-10"
             style={{ backgroundColor: 'rgba(0,0,0,0.6)', color, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
             {label}
           </div>
@@ -265,8 +265,8 @@ export const WaveformDisplay = ({
 
         {/* Hover instruction */}
         {onSeek && (
-          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none sticky left-0 right-0">
-            <span className="text-sm text-white sticky left-1/2 -translate-x-1/2">Click to traverse song</span>
+          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+            <span className="text-sm text-white">Click to traverse song</span>
           </div>
         )}
       </div>

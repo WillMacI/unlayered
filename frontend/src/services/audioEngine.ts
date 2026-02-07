@@ -332,9 +332,6 @@ export class AudioEngine {
   }
 
   /**
-   * Clean up all resources
-   */
-  /**
    * Get waveform data for a specific stem
    * Returns normalized array of peaks (0-1)
    */

@@ -18,24 +18,15 @@ export const KeyboardShortcutsModal = ({
 }: KeyboardShortcutsModalProps) => {
   if (!isOpen) return null;
 
-  // Group shortcuts by category
-  const playbackShortcuts = shortcuts.filter((s) =>
-    ['Play/Pause', 'Seek -5s', 'Seek +5s'].includes(s.description)
-  );
+  const getShortcutCategory = (shortcut: KeyboardShortcut): KeyboardShortcut['category'] => {
+    if (shortcut.category) return shortcut.category;
+    return 'general';
+  };
 
-  const stemShortcuts = shortcuts.filter((s) =>
-    s.description.includes('Toggle') || s.description.includes('Mute') || s.description.includes('Solo')
-  );
-
-  const volumeShortcuts = shortcuts.filter((s) =>
-    s.description.includes('Volume')
-  );
-
-  const generalShortcuts = shortcuts.filter((shortcut) =>
-    !playbackShortcuts.includes(shortcut)
-    && !stemShortcuts.includes(shortcut)
-    && !volumeShortcuts.includes(shortcut)
-  );
+  const playbackShortcuts = shortcuts.filter((s) => getShortcutCategory(s) === 'playback');
+  const stemShortcuts = shortcuts.filter((s) => getShortcutCategory(s) === 'stem');
+  const volumeShortcuts = shortcuts.filter((s) => getShortcutCategory(s) === 'volume');
+  const generalShortcuts = shortcuts.filter((s) => getShortcutCategory(s) === 'general');
 
   const formatKey = (shortcut: KeyboardShortcut): string => {
     const parts: string[] = [];
