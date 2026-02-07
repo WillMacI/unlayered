@@ -40,12 +40,9 @@ class DemucsService:
         return stem_to_path
 
     def save_audio(self, source, stem, file, output_dir, song_id):
-        dir_path = Path(output_dir, song_dir)
-        try:
-            dir_path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            print(f"Error creating directory {dir_path}: {e}")
-        path = Path(output_dir, song_id, f"{stem}_{file}")
+        dir_path = Path(output_dir, song_id)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        path = Path(dir_path, f"{stem}_{file}")
         
         demucs.api.save_audio(source, path, samplerate=self.separater.samplerate)
         return path
