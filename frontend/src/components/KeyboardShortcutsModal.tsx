@@ -72,6 +72,7 @@ export const KeyboardShortcutsModal = ({
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-white transition-colors"
+            aria-label="Close keyboard shortcuts"
           >
             <svg
               className="w-6 h-6"

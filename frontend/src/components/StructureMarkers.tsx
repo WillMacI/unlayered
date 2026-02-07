@@ -10,7 +10,6 @@ interface StructureMarkersProps {
   duration: number;
   currentTime: number;
   onSectionClick?: (section: SongSection) => void;
-  containerWidth: number;
 }
 
 // Color mapping for section types (Grayscale / Subtle)
@@ -31,9 +30,8 @@ export const StructureMarkers = ({
   duration,
   currentTime,
   onSectionClick,
-  containerWidth,
 }: StructureMarkersProps) => {
-  if (!sections || sections.length === 0 || containerWidth === 0 || duration <= 0) return null;
+  if (!sections || sections.length === 0 || duration <= 0) return null;
 
   // Find active section
   const activeSection = sections.find(

@@ -59,7 +59,7 @@ export const SongIntro = ({ audioFile, onStart }: SongIntroProps) => {
                         {!isLoading ? (
                             <button
                                 onClick={onStart}
-                                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-full font-bold text-lg hover:bg-neutral-200 transition-all transform hover:scale-105 active:scale-95 animate-in fade-in zoom-in duration-300"
+                                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-white text-black rounded-full font-bold text-lg hover:bg-neutral-200 transition-all transform hover:scale-105 active:scale-95 duration-300"
                             >
                                 <Play className="w-5 h-5 fill-current" />
                                 <span>Enter Studio</span>

@@ -66,6 +66,7 @@ export const StemTrack = ({
               onClick={() => onToggleMute(stem.id)}
               className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${stem.isMuted ? 'bg-neutral-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
               title="Mute"
+              aria-label={stem.isMuted ? 'Unmute stem' : 'Mute stem'}
             >
               {stem.isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
             </button>
@@ -73,6 +74,7 @@ export const StemTrack = ({
               onClick={() => onToggleSolo(stem.id)}
               className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold transition-colors ${stem.isSolo ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
               title="Solo"
+              aria-label={stem.isSolo ? 'Disable solo' : 'Solo stem'}
             >
               S
             </button>
@@ -80,6 +82,7 @@ export const StemTrack = ({
               onClick={() => setViewMode(prev => prev === 'mono' ? 'stereo' : 'mono')}
               className={`w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${viewMode === 'stereo' ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
               title="Toggle Mono/Stereo View"
+              aria-label={viewMode === 'stereo' ? 'Switch to mono view' : 'Switch to stereo view'}
             >
               {viewMode === 'stereo' ? 'LR' : 'M'}
             </button>

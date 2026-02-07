@@ -282,9 +282,13 @@ function App() {
 
   // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
   const handleToggleMuteByIndex = useCallback((index: number) => {
-    const stem = sortedStems[index];
+    const shortcutOrder = ['vocals', 'guitar', 'drums', 'bass', 'other'];
+    const targetType = shortcutOrder[index];
+    if (!targetType) return;
+
+    const stem = stemsRef.current.find((s) => s.type === targetType);
     if (stem) handleToggleMute(stem.id);
-  }, [sortedStems, handleToggleMute]);
+  }, [handleToggleMute]);
 
   const handleMuteAll = useCallback(() => {
     const allMuted = stemsRef.current.every((s) => s.isMuted);

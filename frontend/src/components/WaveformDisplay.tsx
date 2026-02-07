@@ -36,10 +36,8 @@ export const WaveformDisplay = ({
   setScrollRef,
 }: WaveformDisplayProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [flashingPeak, setFlashingPeak] = useState<number | null>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
 
   // Check if we're near a peak and flash
   useEffect(() => {
@@ -175,19 +173,6 @@ export const WaveformDisplay = ({
 
   }, [waveformData, currentTime, duration, color, zoom]);
 
-  // Update container width on mount, resize, and zoom
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, [zoom]);
-
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!onSeek || !canvasRef.current) return;
 
@@ -224,11 +209,10 @@ export const WaveformDisplay = ({
       }}
       onScroll={onScroll}
       onMouseDown={onInteract}
-      className={`relative group ${zoom > 1 ? 'overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}
+      className={`relative group ${zoom > 1 ? 'overflow-x-auto' : 'overflow-hidden'}`}
       style={{ width: '100%' }}
     >
       <div
-        ref={containerRef}
         className="relative"
         style={{ width: `${zoom * 100}%`, minWidth: '100%' }}
       >
@@ -278,7 +262,6 @@ export const WaveformDisplay = ({
             duration={duration}
             currentTime={currentTime}
             onSectionClick={(section) => onSeek?.(section.startTime)}
-            containerWidth={containerWidth}
           />
         )}
 
