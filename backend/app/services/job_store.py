@@ -94,6 +94,7 @@ class JobStore:
                 return False, active_count
 
             self._jobs[job.job_id] = job
+            self._prune_history()
             logger.info(f"Job {job.job_id} added to store")
             return True, active_count
 

@@ -35,7 +35,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-**Note:** If you encounter issues installing Demucs (especially on Python 3.14+), you may need to install dependencies individually or use a modified Demucs package without `lameenc` (which is only needed for MP3 output). The backend uses WAV output exclusively, so `lameenc` is not required.
+**Note:** `requirements.txt` installs the upstream Demucs package. If you hit install issues on Python 3.14+, try Python 3.10–3.13 or install Demucs separately after `pip install -r requirements.txt`. The backend outputs WAV only, so MP3 encoders like `lameenc` are not required.
 
 3. Copy `.env.example` to `.env` and configure:
 ```bash
