@@ -52,6 +52,25 @@ export class AudioEngine {
     }
 
     try {
+      const existing = this.stems.get(stemId);
+      if (existing) {
+        if (existing.source) {
+          try {
+            existing.source.stop();
+            existing.source.disconnect();
+          } catch {
+            // Ignore if already stopped
+          }
+          existing.source = null;
+        }
+        try {
+          existing.gainNode.disconnect();
+          existing.panNode.disconnect();
+        } catch {
+          // Ignore if already disconnected
+        }
+      }
+
       // Fetch audio file
       const response = await fetch(audioUrl);
       if (!response.ok) {

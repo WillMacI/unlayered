@@ -364,6 +364,7 @@ function App() {
     { key: 'm', action: handleMuteAll, description: 'Mute all' },
     { key: 's', action: handleSoloActive, description: 'Solo active stem' },
     { key: '=', action: () => adjustMasterVolume(0.1), description: 'Volume up' },
+    { key: '+', shift: true, action: () => adjustMasterVolume(0.1), description: 'Volume up' },
     { key: '-', action: () => adjustMasterVolume(-0.1), description: 'Volume down' },
     {
       key: '?',

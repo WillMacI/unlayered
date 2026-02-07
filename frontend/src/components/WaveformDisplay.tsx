@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, type MouseEvent } from 'react';
 import type { WaveformPeak, SongSection } from '../types/audio';
 import { StructureMarkers } from './StructureMarkers';
 
-interface WaveformDisplayProps {
+export interface WaveformDisplayProps {
   waveformData: number[] | { left: number[], right: number[] };
   currentTime: number;
   duration: number;
