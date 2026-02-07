@@ -37,7 +37,7 @@ def flatten_dom(node: Any) -> str:
 
 
 def normalize(text: str) -> str:
-    return re.sub(r"\\s+", " ", text).strip().lower()
+    return re.sub(r"\s+", " ", text).strip().lower()
 
 
 def build_timed_annotations(
