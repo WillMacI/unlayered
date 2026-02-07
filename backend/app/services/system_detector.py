@@ -166,9 +166,12 @@ class SystemDetector:
             if capabilities.gpu_memory_gb < 7.0:
                 return False, f"6-stem model requires 7GB+ VRAM, system has {capabilities.gpu_memory_gb:.1f}GB"
 
-        # Check if fine-tuned model is requested on CPU
+        # Warn if fine-tuned model is requested on CPU (allowed but slower)
         if model == "htdemucs_ft" and not capabilities.has_gpu:
-            return False, "Fine-tuned model works best with GPU, consider using standard htdemucs on CPU"
+            logger.warning(
+                "htdemucs_ft model requested on CPU-only system. This is supported but may be "
+                "significantly slower. Consider using standard htdemucs on CPU for better performance."
+            )
 
         return True, None
 

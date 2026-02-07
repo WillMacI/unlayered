@@ -10,6 +10,7 @@ import shutil
 import time
 
 from app.config import settings
+# Note: app.models.schemas exists and contains Pydantic response models
 from app.models.schemas import JobResponse, SeparationResult, SystemCapabilities
 from app.services.job_store import get_job_store, Job, JobStatus
 from app.services.demucs_service import DemucsService
@@ -185,6 +186,11 @@ async def process_separation_job(
 
     try:
         # Update job status to processing
+        # Note: Job is marked as PROCESSING when background task starts, even though
+        # actual separation work may be queued in the thread pool. This is acceptable
+        # since the background task is running (not waiting in FastAPI queue) and the
+        # distinction between "queued in executor" vs "actively processing" is minimal
+        # for end users. For production, consider a job queue with explicit queued state.
         job_store.update(
             job_id,
             status=JobStatus.PROCESSING,
