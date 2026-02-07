@@ -1,0 +1,37 @@
+{
+  "name": "unlayered",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A new way to listen to music - Desktop app for audio track separation",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "dev:backend": "cd backend && python run.py",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+    "build": "npm run build --workspace=frontend",
+    "tauri:dev": "npm run tauri:dev --workspace=frontend",
+    "tauri:build": "npm run tauri:build --workspace=frontend",
+    "lint": "npm run lint --workspace=frontend",
+    "clean": "rm -rf frontend/node_modules frontend/dist backend/__pycache__ backend/.pytest_cache backend/venv",
+    "setup": "npm install && cd backend && python -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/unlayered.git"
+  },
+  "keywords": [
+    "audio",
+    "music",
+    "track-separation",
+    "demucs",
+    "stems",
+    "desktop-app"
+  ],
+  "author": "Unlayered Team",
+  "license": "MIT"
+}
