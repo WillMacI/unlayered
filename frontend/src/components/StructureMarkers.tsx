@@ -34,7 +34,7 @@ export const StructureMarkers = ({
   onSectionClick,
   containerWidth,
 }: StructureMarkersProps) => {
-  if (!sections || sections.length === 0 || containerWidth === 0) return null;
+  if (!sections || sections.length === 0 || containerWidth === 0 || duration <= 0) return null;
 
   // Find active section
   const activeSection = sections.find(

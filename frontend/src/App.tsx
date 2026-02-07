@@ -371,18 +371,16 @@ function App() {
   const isAutoScrolling = useRef(false);
   const userHasScrolled = useRef(false);
 
-  const lastRegisteredScrollRef = useRef<HTMLDivElement | null>(null);
-
   const registerScrollRef = useCallback((ref: HTMLDivElement | null) => {
     if (ref) {
       scrollContainers.current.add(ref);
-      lastRegisteredScrollRef.current = ref;
-      return;
-    }
-
-    if (lastRegisteredScrollRef.current) {
-      scrollContainers.current.delete(lastRegisteredScrollRef.current);
-      lastRegisteredScrollRef.current = null;
+    } else {
+      // Clean up any containers that are no longer connected
+      scrollContainers.current.forEach((container) => {
+        if (!container.isConnected) {
+          scrollContainers.current.delete(container);
+        }
+      });
     }
   }, []);
 

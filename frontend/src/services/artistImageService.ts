@@ -43,15 +43,33 @@ async function fetchFromMusicBrainz(artistName: string): Promise<string | null> 
 
     const artistId = searchData.artists[0].id;
 
-    // Try to get cover art from Cover Art Archive
-    const coverUrl = `https://coverartarchive.org/release-group/${artistId}/front`;
-    const coverResponse = await fetch(coverUrl, { method: 'HEAD' });
+    // Try to find an artist image via MusicBrainz URL relations
+    const artistUrl = `https://musicbrainz.org/ws/2/artist/${artistId}?inc=url-rels&fmt=json`;
+    const artistResponse = await fetch(artistUrl, {
+      headers: {
+        'User-Agent': 'Unlayered/1.0 (https://github.com/unlayered)',
+      },
+    });
 
-    if (coverResponse.ok) {
-      return coverUrl;
+    if (!artistResponse.ok) return null;
+
+    const artistData = await artistResponse.json();
+    const relations = artistData.relations ?? [];
+    const imageRel = relations.find((rel: { type?: string; url?: { resource?: string } }) =>
+      rel.type === 'image' && rel.url?.resource
+    );
+
+    if (!imageRel?.url?.resource) return null;
+
+    const resourceUrl = imageRel.url.resource;
+    if (resourceUrl.includes('commons.wikimedia.org/wiki/File:')) {
+      const filename = resourceUrl.split('File:')[1];
+      if (filename) {
+        return `https://commons.wikimedia.org/wiki/Special:FilePath/${filename}`;
+      }
     }
 
-    return null;
+    return resourceUrl;
   } catch (error) {
     console.warn('MusicBrainz fetch failed:', error);
     return null;

@@ -9,7 +9,7 @@ import type { Stem } from '../types/audio';
 
 interface UseAudioEngineReturn {
   loadStems: (stems: Stem[]) => Promise<void>;
-  play: () => void;
+  play: () => Promise<void>;
   pause: () => void;
   seek: (time: number) => void;
   setVolume: (stemId: string, volume: number) => void;
@@ -138,12 +138,14 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
   /**
    * Play audio
    */
-  const play = useCallback(() => {
+  const play = useCallback(async () => {
     if (!engineRef.current) return;
 
     try {
-      engineRef.current.play();
-      setIsPlaying(true);
+      await engineRef.current.play();
+      if (engineRef.current.getIsPlaying()) {
+        setIsPlaying(true);
+      }
     } catch (err) {
       setError('Failed to start playback');
       console.error('Play error:', err);

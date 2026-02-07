@@ -96,6 +96,7 @@ export const WaveformDisplay = ({
 
     // Draw waveform with gradient fill - using Path for high resolution
     const totalPoints = Array.isArray(waveformData) ? waveformData.length : waveformData.left.length;
+    if (totalPoints === 0) return;
     const pointWidth = rect.width / totalPoints;
     const halfHeight = rect.height / 2;
 
@@ -128,7 +129,7 @@ export const WaveformDisplay = ({
 
       // 2. Draw Played (Foreground) state - Bright & Clipped
       ctx.save();
-      const progressX = (currentTime / duration) * rect.width;
+      const progressX = duration > 0 ? (currentTime / duration) * rect.width : 0;
 
       // Create clip region for played part
       ctx.beginPath();
@@ -161,7 +162,7 @@ export const WaveformDisplay = ({
     }
 
     // Draw professional playhead cursor (red)
-    const playheadX = (currentTime / duration) * rect.width;
+    const playheadX = duration > 0 ? (currentTime / duration) * rect.width : 0;
     ctx.shadowColor = '#dc2626';
     ctx.shadowBlur = 0;
     ctx.strokeStyle = '#dc2626';
@@ -201,6 +202,7 @@ export const WaveformDisplay = ({
   // Generate timeline markers
   const generateTimelineMarkers = () => {
     const markers = [];
+    if (duration <= 0) return markers;
     const interval = 30; // 30 second intervals
     for (let i = 0; i <= duration; i += interval) {
       const minutes = Math.floor(i / 60);

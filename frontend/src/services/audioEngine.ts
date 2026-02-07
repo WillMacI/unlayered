@@ -10,6 +10,7 @@ interface StemAudioNode {
   panNode: StereoPannerNode;
   url: string;
   volume: number; // Track user's volume setting separately from mute state
+  muted: boolean;
 }
 
 export class AudioEngine {
@@ -71,6 +72,7 @@ export class AudioEngine {
         panNode,
         url: audioUrl,
         volume: 1, // Default volume
+        muted: false,
       });
 
       // Update duration (use longest stem)
@@ -86,7 +88,7 @@ export class AudioEngine {
   /**
    * Play all stems synchronously
    */
-  play(): void {
+  async play(): Promise<void> {
     if (!this.context) return;
 
     // Prevent multiple play calls
@@ -95,13 +97,19 @@ export class AudioEngine {
       return;
     }
 
-    // Set playing state immediately to prevent race conditions
-    this.isPlaying = true;
-
     // Resume context if needed
     if (this.context.state === 'suspended') {
-      this.context.resume();
+      try {
+        await this.context.resume();
+      } catch (error) {
+        console.warn('Audio context resume failed:', error);
+        this.isPlaying = false;
+        return;
+      }
     }
+
+    // Set playing state after successful resume
+    this.isPlaying = true;
 
     // Calculate start offset
     const offset = this.pauseTime;
@@ -223,7 +231,9 @@ export class AudioEngine {
     if (stem) {
       const clampedVolume = Math.max(0, Math.min(1, volume));
       stem.volume = clampedVolume;
-      stem.gainNode.gain.value = clampedVolume;
+      if (!stem.muted) {
+        stem.gainNode.gain.value = clampedVolume;
+      }
     }
   }
 
@@ -243,6 +253,7 @@ export class AudioEngine {
   setMute(stemId: string, muted: boolean): void {
     const stem = this.stems.get(stemId);
     if (stem) {
+      stem.muted = muted;
       // When unmuting, restore the user's saved volume instead of resetting to 1
       stem.gainNode.gain.value = muted ? 0 : stem.volume;
     }
