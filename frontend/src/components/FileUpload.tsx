@@ -142,7 +142,7 @@ export const FileUpload = ({
   // If a file is pending, show quality selection
   if (pendingFile) {
     return (
-      <div className="border-2 border-[#D4AF37] rounded-lg p-8 bg-white/5">
+      <div className="border border-white/10 rounded-2xl p-8 bg-white/5">
         <div className="flex flex-col items-center gap-6">
           <div className="p-4 rounded-full bg-[#D4AF37]/20">
             <FileAudio className="w-12 h-12 text-[#D4AF37]" />
@@ -256,58 +256,60 @@ export const FileUpload = ({
   }
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      className={`border-2 border-dashed rounded-lg p-12 transition-all ${
-        disabled
-          ? 'cursor-not-allowed opacity-50'
-          : 'cursor-pointer'
-      } ${
-        isDragging
-          ? 'border-[#D4AF37] bg-white/5'
-          : 'border-neutral-700 hover:border-neutral-600 hover:bg-white/5'
-      }`}
-    >
-      <div className="flex flex-col items-center gap-4">
-        <div className="p-4 rounded-full bg-white/5">
-          {isDragging ? (
-            <Upload className="w-12 h-12 text-[#D4AF37]" />
-          ) : (
-            <FileAudio className="w-12 h-12 text-neutral-500" />
-          )}
+    <div className="w-full">
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`border border-white/10 rounded-2xl p-8 transition-all ${
+          disabled
+            ? 'cursor-not-allowed opacity-50'
+            : 'cursor-pointer'
+        } ${
+          isDragging
+            ? 'border-[#D4AF37] bg-white/10'
+            : 'bg-white/5 hover:bg-white/10'
+        }`}
+      >
+        <div className="flex items-center gap-5">
+          <div className="p-4 rounded-full bg-white/10">
+            {isDragging ? (
+              <Upload className="w-8 h-8 text-[#D4AF37]" />
+            ) : (
+              <FileAudio className="w-8 h-8 text-neutral-300" />
+            )}
+          </div>
+
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white">
+              {isDragging ? 'Drop your audio file' : 'Upload Audio File'}
+            </h3>
+            <p className="text-neutral-400 text-sm">
+              Drag and drop or browse to select a track.
+            </p>
+            <p className="text-xs text-neutral-500 mt-1">
+              Supports MP3, WAV, FLAC, and more
+            </p>
+          </div>
+
+          {/* Hidden file input with ref */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            onChange={handleFileInput}
+            className="hidden"
+            disabled={disabled}
+          />
+
+          <button
+            onClick={handleBrowseClick}
+            disabled={disabled}
+            className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#b5952f] disabled:bg-neutral-600 disabled:cursor-not-allowed text-black rounded-full font-semibold transition-colors"
+          >
+            Browse
+          </button>
         </div>
-
-        <div className="text-center">
-          <h3 className="text-xl font-semibold text-white mb-2">
-            {isDragging ? 'Drop your audio file' : 'Upload Audio File'}
-          </h3>
-          <p className="text-neutral-400 text-sm mb-4">
-            Drag and drop or click to browse
-          </p>
-          <p className="text-xs text-neutral-500">
-            Supports MP3, WAV, FLAC, and other audio formats
-          </p>
-        </div>
-
-        {/* Hidden file input with ref */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*"
-          onChange={handleFileInput}
-          className="hidden"
-          disabled={disabled}
-        />
-
-        <button
-          onClick={handleBrowseClick}
-          disabled={disabled}
-          className="px-6 py-3 bg-[#D4AF37] hover:bg-[#b5952f] disabled:bg-neutral-600 disabled:cursor-not-allowed text-black rounded-lg font-medium transition-colors"
-        >
-          Browse Files
-        </button>
       </div>
     </div>
   );

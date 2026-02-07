@@ -691,9 +691,10 @@ function App() {
     return (
       <>
         <LoadingScreen
-          artist="Processing"
-          trackName="Audio Separation"
-          progress={separationProgress}
+          artist={songMeta?.artists?.[0] || selectedTrackName || 'Processing'}
+          trackName={songMeta?.title || selectedTrackName || 'Audio Separation'}
+          albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+          artistImage={songMeta?.artist_image_url || undefined}
           status={statusMessages[separationStage] || 'Processing...'}
         />
         {toastMessage && (
@@ -710,20 +711,29 @@ function App() {
   // If no audio file, show upload screen
   if (!audioFile) {
     return (
-      <div className="min-h-screen bg-slate-900 p-8 flex items-center justify-center">
-        <div className="max-w-2xl w-full">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2">Unlayered</h1>
-            <p className="text-slate-400">
-              A new way to listen to music
-            </p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="relative max-w-4xl w-full px-8 flex flex-col md:flex-row items-center gap-12">
+          {/* Info + Upload */}
+          <div className="flex-1 text-center md:text-left space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-sm font-medium text-yellow-500/80 tracking-widest uppercase">
+                Unlayered Studio
+              </h2>
+              <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter">
+                A new way to listen
+              </h1>
+              <p className="text-lg text-neutral-400 font-light">
+                Separate stems, explore lyrics, and remix in real time.
+              </p>
+            </div>
+
+            <FileUpload
+              onFileSelect={handleFileSelect}
+              capabilities={capabilities}
+              recommendedQuality={recommendedQuality}
+              disabled={isProcessing}
+            />
           </div>
-          <FileUpload
-            onFileSelect={handleFileSelect}
-            capabilities={capabilities}
-            recommendedQuality={recommendedQuality}
-            disabled={isProcessing}
-          />
         </div>
         <LyricsSearchModal
           isOpen={lyricsSearchOpen}
