@@ -371,7 +371,15 @@ export class AudioEngine {
     }
 
     // Normalize to 0-1 range (amplified slightly for visibility)
-    const max = Math.max(...waveform) || 1;
+    let max = 0;
+    for (let i = 0; i < waveform.length; i++) {
+      if (waveform[i] > max) {
+        max = waveform[i];
+      }
+    }
+    if (max === 0) {
+      max = 1;
+    }
     return waveform.map(val => Math.min(1, (val / max) * 1.5));
   }
 
@@ -414,7 +422,15 @@ export class AudioEngine {
         waveform.push(Math.sqrt(sum / segmentLength));
       }
 
-      const max = Math.max(...waveform) || 1;
+      let max = 0;
+      for (let i = 0; i < waveform.length; i++) {
+        if (waveform[i] > max) {
+          max = waveform[i];
+        }
+      }
+      if (max === 0) {
+        max = 1;
+      }
       return waveform.map(val => Math.min(1, (val / max) * 1.5));
     };
 
