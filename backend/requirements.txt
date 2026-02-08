@@ -9,6 +9,7 @@ soundfile==0.12.1
 pydub==0.25.1
 basic-pitch==0.3.0
 tensorflow==2.14.0
+numpy<2.0.0
 
 # Utilities
 python-dotenv==1.0.1

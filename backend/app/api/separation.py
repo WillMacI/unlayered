@@ -16,6 +16,7 @@ from app.models.schemas import JobResponse, SeparationResult, SystemCapabilities
 from app.services.job_store import get_job_store, Job, JobStatus
 from app.services.demucs_service import DemucsService, get_executor
 from app.services.system_detector import get_system_capabilities, SystemDetector
+from app.services.note_detection import get_note_detection_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ ALLOWED_AUDIO_TYPES = {
     "audio/mp3",
     "audio/wav",
     "audio/x-wav",
+    "audio/vnd.wave",
     "audio/flac",
     "audio/x-flac",
     "audio/ogg",
@@ -62,7 +64,7 @@ async def upload_audio(
             status_code=400,
             detail=f"Invalid file type: {file.content_type}. Must be an audio file."
         )
-
+    
     # Validate quality parameter
     if quality < 1 or quality > 5:
         raise HTTPException(
@@ -278,12 +280,31 @@ async def process_separation_job(
         # Calculate processing time
         processing_time = time.time() - start_time
 
+        # Run note detection on stems
+        note_service = get_note_detection_service()
+        notes_dict = {}
+        for stem_name, stem_path in stems.items():
+            if stem_path:
+                # Skip note detection for drums (too many false positives)
+                if stem_name == 'drums':
+                    notes_dict[stem_name] = []
+                    continue
+
+                try:
+                    stem_notes = note_service.detect_notes(Path(stem_path))
+                    # Convert NoteEvent objects to dicts for storage
+                    notes_dict[stem_name] = [note.model_dump() for note in stem_notes]
+                except Exception as e:
+                    logger.error(f"Failed to detect notes for {stem_name}: {e}")
+                    notes_dict[stem_name] = []
+
         # Update job with results
         job_store.update(
             job_id,
             status=JobStatus.COMPLETED,
             completed_at=datetime.now(),
             stems=stems_dict,
+            notes=notes_dict,
             progress=1.0,
             processing_time=processing_time
         )
@@ -360,6 +381,7 @@ async def get_result(job_id: str):
         job_id=job_id,
         status=job.status,
         tracks=tracks,
+        notes=job.notes,
         duration=job.processing_time
     )
 

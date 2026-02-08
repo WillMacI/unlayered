@@ -7,7 +7,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, Optional, Tuple, List
 import logging
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ class Job:
     stems: Optional[Dict[str, Optional[str]]] = None  # stem_name -> Optional[file_path], None if unavailable
     error_message: Optional[str] = None
     processing_time: Optional[float] = None  # seconds
+    notes: Optional[Dict[str, List[dict]]] = None  # stem_name -> list of note dicts
 
     def to_dict(self) -> dict:
         """Convert job to dictionary for JSON serialization."""
@@ -113,7 +114,8 @@ class JobStore:
         completed_at: Optional[datetime] = None,
         stems: Optional[Dict[str, Optional[str]]] = None,
         error_message: Optional[str] = None,
-        processing_time: Optional[float] = None
+        processing_time: Optional[float] = None,
+        notes: Optional[Dict[str, List[dict]]] = None
     ) -> Optional[Job]:
         """
         Update job fields.
@@ -143,6 +145,8 @@ class JobStore:
                 job.error_message = error_message
             if processing_time is not None:
                 job.processing_time = processing_time
+            if notes is not None:
+                job.notes = notes
 
             self._prune_history()
             logger.info(f"Job {job_id} updated: status={job.status}, progress={job.progress}")

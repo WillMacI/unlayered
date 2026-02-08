@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     # System Detection
     force_cpu: bool = False  # Override GPU detection if needed
+    use_gpu: bool = True     # Additional GPU flag from .env
+    
+    # Model
+    demucs_model: str = "htdemucs"
 
     # Paths
     upload_dir: Path = Path("./uploads")
