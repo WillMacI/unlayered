@@ -38,6 +38,37 @@ ALLOWED_AUDIO_TYPES = {
 }
 
 
+@router.get("/history", response_model=list[JobResponse])
+async def get_history():
+    """
+    Get a list of previously completed separation jobs.
+    Scans the job store (which is populated from disk on startup).
+    """
+    job_store = get_job_store()
+    
+    # Get all completed jobs
+    completed_jobs = job_store.list_jobs(status=JobStatus.COMPLETED)
+    
+    # Sort by completed_at (newest first), falling back to created_at
+    completed_jobs.sort(
+        key=lambda j: j.completed_at or j.created_at or datetime.min, 
+        reverse=True
+    )
+    
+    # Convert to JobResponse
+    return [
+        JobResponse(
+            job_id=job.job_id,
+            filename=job.filename,
+            status=job.status,
+            progress=job.progress,
+            error=job.error_message,
+            created_at=job.created_at
+        ) 
+        for job in completed_jobs
+    ]
+
+
 @router.post("/upload", response_model=JobResponse)
 async def upload_audio(
     background_tasks: BackgroundTasks,

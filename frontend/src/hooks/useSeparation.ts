@@ -25,6 +25,7 @@ interface UseSeparationState {
 
 interface UseSeparationReturn extends UseSeparationState {
   startSeparation: (file: File, quality: number) => Promise<void>;
+  loadJob: (jobId: string) => Promise<void>;
   reset: () => void;
 }
 
@@ -225,6 +226,46 @@ export function useSeparation(): UseSeparationReturn {
     }
   }, [pollJobStatus, stopPolling]);
 
+  const loadJob = useCallback(async (jobId: string) => {
+    stopPolling();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Reset state but keep ID
+    setState((prev) => ({
+      ...prev,
+      stage: 'processing', // Temporary state while fetching result
+      jobId,
+      error: null,
+      result: null,
+    }));
+
+    try {
+      const result = await getJobResult(jobId, controller.signal);
+
+      if (controller.signal.aborted) return;
+
+      setState((prev) => ({
+        ...prev,
+        stage: 'completed',
+        progress: 100,
+        result,
+      }));
+    } catch (err) {
+      if (controller.signal.aborted) return;
+
+      setState((prev) => ({
+        ...prev,
+        stage: 'failed',
+        error: err instanceof Error ? err.message : 'Failed to load job',
+      }));
+    }
+  }, [stopPolling]);
+
   const reset = useCallback(() => {
     stopPolling();
     if (abortControllerRef.current) {
@@ -236,6 +277,7 @@ export function useSeparation(): UseSeparationReturn {
   return {
     ...state,
     startSeparation,
+    loadJob,
     reset,
   };
 }

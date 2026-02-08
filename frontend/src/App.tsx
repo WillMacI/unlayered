@@ -9,7 +9,9 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { LoadingScreen } from './components/LoadingScreen';
 import { Toast } from './components/Toast';
 
+
 import { SongIntro } from './components/SongIntro';
+import { DrumVisualizer } from './components/DrumVisualizer';
 import { LyricsSearchModal } from './components/LyricsSearchModal';
 import { LyricDetailModal } from './components/LyricDetailModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
@@ -65,6 +67,7 @@ function App() {
     capabilities,
     recommendedQuality,
     startSeparation,
+    loadJob,
     reset: resetSeparation,
   } = useSeparation();
 
@@ -93,12 +96,16 @@ function App() {
   const [selectedTrackName, setSelectedTrackName] = useState<string | null>(null);
   const [isLyricModalOpen, setIsLyricModalOpen] = useState(false);
 
+
+  const [drumPeaks, setDrumPeaks] = useState<{ time: number; intensity: number; channel: 'left' | 'right' | 'center' }[]>([]);
   const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
+  const waveformsReady = stemsLoaded && playbackState.duration > 0;
 
   // Initialize audio engine
   const {
     loadStems: loadAudioStems,
+    resetStems: resetAudioStems,
     play: playAudio,
     pause: pauseAudio,
     seek: seekAudio,
@@ -112,6 +119,7 @@ function App() {
     isLoading: audioLoading,
     error: audioError,
     getStereoWaveformData,
+    getKickDrumPeaks,
   } = useAudioEngine();
 
   useEffect(() => {
@@ -158,9 +166,16 @@ function App() {
     setMasterVolume(playbackState.volume);
   }, [playbackState.volume, setMasterVolume]);
 
-  // Handle separation completion
+  // Handle separation completion - create stems (only once per job)
+  const lastLoadedJobIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (separationStage === 'completed' && separationResult) {
+      // Skip if we've already loaded stems for this job
+      if (lastLoadedJobIdRef.current === separationResult.job_id) {
+        return;
+      }
+      lastLoadedJobIdRef.current = separationResult.job_id;
+
       // Convert backend result to Stem[] format, filtering out null tracks
       const newStems: Stem[] = Object.entries(separationResult.tracks)
         .filter(([_stemName, path]) => path !== null) // Only include stems that exist
@@ -168,6 +183,10 @@ function App() {
           // mapBackendStemToType safely handles unknown stem names by returning 'other'
           const stemType = mapBackendStemToType(stemName);
           const config = STEM_CONFIG[stemName] || STEM_CONFIG.other;
+
+          if (stemName === 'drums') {
+            console.log('[App] Creating drums stem:', { stemName, stemType, config, url: getStemDownloadUrl(separationResult.job_id, stemName) });
+          }
 
           return {
             id: `stem-${stemName}`,
@@ -179,11 +198,10 @@ function App() {
             isMuted: false,
             isSolo: false,
             isLocked: true,
-            waveformData: generateWaveformData(1000, 0.8),
+            waveformData: undefined, // Don't use fake data—force real generation
             hasAudio: true,
             order: config.order,
             audioUrl: getStemDownloadUrl(separationResult.job_id, stemName),
-            lyrics: stemType === 'vocals' && syncedLyrics.length > 0 ? syncedLyrics : undefined,
           };
         });
 
@@ -213,7 +231,18 @@ function App() {
       setAudioFile(newAudioFile);
       setShowIntro(true);
     }
-  }, [separationStage, separationResult, syncedLyrics, songMeta, selectedTrackName]);
+  }, [separationStage, separationResult, songMeta, selectedTrackName]);
+
+  // Update vocals stem with lyrics when they become available
+  useEffect(() => {
+    if (syncedLyrics.length > 0 && stems.length > 0) {
+      setStems(prevStems => prevStems.map(stem =>
+        stem.type === 'vocals'
+          ? { ...stem, lyrics: syncedLyrics }
+          : stem
+      ));
+    }
+  }, [syncedLyrics, stems.length]);
 
   // Handle separation failure
   useEffect(() => {
@@ -235,66 +264,102 @@ function App() {
 
     const load = async () => {
       try {
+        console.log('[App] Loading audio stems:', stems.map(s => s.id));
         await loadAudioStems(stems);
         if (cancelled) return;
 
         setStemsLoaded(true);
 
-        // Generate real waveforms from loaded buffers
-        setStems(prevStems => {
-          const updatedStems = prevStems.map(stem => {
-            if (stem.audioUrl) {
-              // Generate 2000 points for detailed stereo visualization
-              const realWaveform = getStereoWaveformData(stem.id, 2000);
-              // Real waveform comes back as { left: [], right: [] } always from our new method helper
-              // Check if it has data
-              if (realWaveform.left.length > 0 && realWaveform.left.some(v => v > 0)) {
-                return { ...stem, waveformData: realWaveform };
+        // Helper to update waveforms with retry logic
+        const updateWaveforms = (retryCount = 0) => {
+          setStems(prevStems => {
+            let anyUpdated = false;
+            const updatedStems = prevStems.map(stem => {
+              // Skip if already has real data
+              if (stem.waveformData && !Array.isArray(stem.waveformData) && (stem.waveformData as any).left) {
+                // Already has real stereo data, no need to update unless it's flat
+                const currentData = stem.waveformData as { left: number[] };
+                if (currentData.left.some(v => v > 0)) return stem;
+              }
+
+              if (stem.audioUrl) {
+                // Generate 2000 points for detailed stereo visualization
+                const realWaveform = getStereoWaveformData(stem.id, 2000);
+                const hasData = realWaveform.left.some(v => v > 0);
+
+                if (realWaveform.left.length > 0 && hasData) {
+                  console.log(`[App] Generated real waveform for ${stem.id} (max: ${Math.max(...realWaveform.left)})`);
+                  anyUpdated = true;
+                  return { ...stem, waveformData: realWaveform };
+                } else {
+                  // Only log on first attempt to avoid spam
+                  if (retryCount === 0) console.warn(`[App] No waveform data generated for ${stem.id} (attempt ${retryCount + 1}). Buffer likely empty or silent.`);
+                }
+              }
+              return stem;
+            });
+
+            // If we still have missing waveforms and haven't hit retry limit, try again
+            if (!cancelled && retryCount < 3) {
+              const missingData = updatedStems.some(s => {
+                if (!s.audioUrl) return false;
+                if (!s.waveformData) return true; // Missing data
+                if (Array.isArray(s.waveformData)) return false; // Legacy/Basic format (treat as done?)
+                return !(s.waveformData as any).left.some((v: number) => v > 0); // Check for silence
+              });
+              if (missingData) {
+                setTimeout(() => updateWaveforms(retryCount + 1), 500);
               }
             }
-            return stem;
+
+            // Only trigger update if something changed (avoid loops)
+            if (!anyUpdated && retryCount > 0) return prevStems;
+
+            // Calculate combined waveform (average of all active stems)
+            const length = 2000;
+            const combined = new Array(length).fill(0);
+            let activeCount = 0;
+
+            updatedStems.forEach(stem => {
+              // Handle both mono and stereo structures for the combined view logic
+              let dataToAdd: number[] = [];
+              if (Array.isArray(stem.waveformData)) {
+                if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
+              } else {
+                // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
+                const stereoData = stem.waveformData as { left: number[], right: number[] };
+                if (stereoData.left.length === length) {
+                  // Simple mono mixdown for visualization
+                  dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
+                }
+              }
+
+              if (dataToAdd.length === length) {
+                activeCount++;
+                for (let i = 0; i < length; i++) {
+                  combined[i] += dataToAdd[i];
+                }
+              }
+            });
+
+            if (activeCount > 0) {
+              // Normalize combined waveform - compute max iteratively
+              let max = 0;
+              for (let i = 0; i < combined.length; i++) {
+                if (combined[i] > max) max = combined[i];
+              }
+              if (max === 0) max = 1;
+              const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
+              setCombinedWaveform(normalizedCombined);
+            }
+
+            return updatedStems;
           });
+        };
 
-          // Calculate combined waveform (average of all active stems)
-          const length = 2000;
-          const combined = new Array(length).fill(0);
-          let activeCount = 0;
+        // Initial call
+        updateWaveforms();
 
-          updatedStems.forEach(stem => {
-            // Handle both mono and stereo structures for the combined view logic
-            let dataToAdd: number[] = [];
-            if (Array.isArray(stem.waveformData)) {
-              if (stem.waveformData.length === length) dataToAdd = stem.waveformData;
-            } else {
-              // If stereo, just mix the left channel for the "master" visual for now, or mix L+R
-              const stereoData = stem.waveformData as { left: number[], right: number[] };
-              if (stereoData.left.length === length) {
-                // Simple mono mixdown for visualization
-                dataToAdd = stereoData.left.map((v, i) => (v + stereoData.right[i]) / 2);
-              }
-            }
-
-            if (dataToAdd.length === length) {
-              activeCount++;
-              for (let i = 0; i < length; i++) {
-                combined[i] += dataToAdd[i];
-              }
-            }
-          });
-
-          if (activeCount > 0) {
-            // Normalize combined waveform - compute max iteratively
-            let max = 0;
-            for (let i = 0; i < combined.length; i++) {
-              if (combined[i] > max) max = combined[i];
-            }
-            if (max === 0) max = 1;
-            const normalizedCombined = combined.map(v => Math.min(1, (v / max) * 1.2));
-            setCombinedWaveform(normalizedCombined);
-          }
-
-          return updatedStems;
-        });
       } catch (err) {
         if (!cancelled) {
           console.warn('Stem loading failed; will allow retry on next attempt.', err);
@@ -308,6 +373,20 @@ function App() {
       cancelled = true;
     };
   }, [audioFile, stemsLoaded, loadAudioStems, getStereoWaveformData, stems]);
+
+  // Separate effect to trigger kick drum analysis once stems are fully loaded and have audio
+  useEffect(() => {
+    if (!stemsLoaded || stems.length === 0) return;
+
+    const drumStem = stems.find(s => s.type === 'drums' && s.audioUrl);
+    if (drumStem) {
+      console.log('[App] Triggering kick drum analysis for', drumStem.id);
+      getKickDrumPeaks(drumStem.id).then(peaks => {
+        console.log('[App] Kick drum peaks computed:', peaks.length);
+        setDrumPeaks(peaks);
+      }).catch(err => console.error('[App] Kick drum analysis failed:', err));
+    }
+  }, [stemsLoaded, stems, getKickDrumPeaks]);
 
   // Dynamic track ordering: sort stems by activity
   const sortedStems = useMemo(() => {
@@ -425,9 +504,17 @@ function App() {
   const activeAnnotations =
     timedLyrics.find((line) => line.line === activeLyricLine?.text)?.annotations || [];
 
+
+
+
+
   const handleFileSelect = async (file: File, quality: number) => {
     const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
 
+    // Reset the job tracking ref so stems will be loaded fresh
+    lastLoadedJobIdRef.current = null;
+
+    resetAudioStems();
     setShowIntro(false);
     setAudioFile(null);
     setStems([]);
@@ -498,6 +585,45 @@ function App() {
       setLyricsLoading(false);
     }
   }, [startPendingSeparation]);
+
+  const handleLoadJob = useCallback(async (jobId: string, filename: string) => {
+    // 1. Reset state (similar to handleFileSelect)
+    const baseName = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
+
+    // Reset the job tracking ref so stems will be loaded fresh
+    lastLoadedJobIdRef.current = null;
+
+    resetAudioStems();
+    setShowIntro(false);
+    setAudioFile(null);
+    setStems([]);
+    setStemsLoaded(false);
+    setCombinedWaveform([]);
+    setPlaybackState((prev) => ({
+      ...prev,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+    }));
+
+    setTimedLyrics([]);
+    setSyncedLyrics([]);
+    setSongMeta(null);
+    setLyricsSelectionComplete(false);
+    setLyricsSearchQuery(baseName);
+    setLyricsSearchResults([]);
+    setLyricsError(null);
+
+    // 2. Set metadata and open lyrics search (Genius API)
+    setSelectedTrackName(baseName);
+    setLyricsSearchOpen(true);
+
+    // Auto-trigger search
+    performLyricsSearch(baseName);
+
+    // 3. Load the job
+    await loadJob(jobId);
+  }, [loadJob, performLyricsSearch]);
 
   // Keyboard shortcut helpers - wrapped in useCallback to stabilize shortcuts memoization
   const handleToggleMuteByIndex = useCallback((index: number) => {
@@ -729,6 +855,7 @@ function App() {
 
             <FileUpload
               onFileSelect={handleFileSelect}
+              onLoadJob={handleLoadJob}
               capabilities={capabilities}
               recommendedQuality={recommendedQuality}
               disabled={isProcessing}
@@ -786,7 +913,14 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-white select-none" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <div className="min-h-screen flex flex-col font-sans text-white select-none relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <DrumVisualizer
+          peaks={drumPeaks}
+          currentTime={playbackState.currentTime}
+          isPlaying={playbackState.isPlaying && !!stems.find(s => s.type === 'drums' && !s.isMuted && s.volume > 0)}
+        />
+      </div>
       <LyricsSearchModal
         isOpen={lyricsSearchOpen}
         query={lyricsSearchQuery}
@@ -851,7 +985,7 @@ function App() {
       />
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden">
+      <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden relative z-10">
         {/* Left: Waveforms - Main "Page" feel */}
         <div className="flex-1 flex flex-col space-y-6">
 
@@ -871,22 +1005,28 @@ function App() {
               </div>
             </div>
             <div className="py-2">
-              <WaveformDisplay
-                waveformData={combinedWaveform}
-                currentTime={playbackState.currentTime}
-                duration={playbackState.duration}
-                peaks={mockPeaks}
-                color="#D4AF37" // Metallic Gold
-                label=""
-                onSeek={handleSeek}
-                height={120}
-                isCombined
-                sections={mockSongStructure}
-                zoom={zoomLevel}
-                onScroll={handleGlobalScroll}
-                onInteract={handleUserInteract}
-                setScrollRef={registerScrollRef}
-              />
+              {waveformsReady ? (
+                <WaveformDisplay
+                  waveformData={combinedWaveform}
+                  currentTime={playbackState.currentTime}
+                  duration={playbackState.duration}
+                  peaks={mockPeaks}
+                  color="#D4AF37"
+                  label=""
+                  onSeek={handleSeek}
+                  height={120}
+                  isCombined
+                  sections={mockSongStructure}
+                  zoom={zoomLevel}
+                  onScroll={handleGlobalScroll}
+                  onInteract={handleUserInteract}
+                  setScrollRef={registerScrollRef}
+                />
+              ) : (
+                <div className="h-[120px] flex items-center justify-center text-xs text-neutral-500">
+                  Loading waveform...
+                </div>
+              )}
             </div>
           </div>
 
@@ -906,7 +1046,7 @@ function App() {
                   onToggleSolo={handleToggleSolo}
                   onVolumeChange={handleVolumeChange}
                   onPanChange={handlePanChange}
-                  onSeek={handleSeek}
+                  onSeek={waveformsReady ? handleSeek : undefined}
                   zoom={zoomLevel}
                   onScroll={handleGlobalScroll}
                   onInteract={handleUserInteract}

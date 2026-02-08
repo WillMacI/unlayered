@@ -87,6 +87,14 @@ export async function getJobResult(jobId: string, signal?: AbortSignal): Promise
   return response.json();
 }
 
+export async function getJobHistory(signal?: AbortSignal): Promise<JobResponse[]> {
+  const response = await fetch(getApiUrl('history'), { signal });
+  if (!response.ok) {
+    throw new Error(`Failed to get job history: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 export function getStemDownloadUrl(jobId: string, stemName: string): string {
   return getApiUrl('download', jobId, stemName);
 }

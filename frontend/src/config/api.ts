@@ -16,6 +16,7 @@ export const API_CONFIG = {
     status: '/api/separate/status',
     result: '/api/separate/result',
     download: '/api/separate/download',
+    history: '/api/separate/history',
   },
   pollingInterval: 1000,
 } as const;
