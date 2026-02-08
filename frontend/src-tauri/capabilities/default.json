@@ -8,6 +8,13 @@
   "permissions": [
     "core:default",
     "dialog:default",
-    "fs:allow-read"
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        {
+          "path": "$HOME/**"
+        }
+      ]
+    }
   ]
 }

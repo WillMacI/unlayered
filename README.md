@@ -136,6 +136,10 @@ Open http://localhost:5173 in your browser
 
 Full desktop app (slower first run):
 ```bash
+# Terminal 1: Start the Backend (Required)
+npm run dev:backend
+
+# Terminal 2: Start the Desktop App
 npm run tauri:dev
 ```
 

@@ -45,15 +45,22 @@
   --transition-slow: 500ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-body {
+html, body {
   margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-width: 900px;
+  min-height: 600px;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Custom scrollbar */

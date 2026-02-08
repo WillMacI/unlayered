@@ -1,4 +1,4 @@
-import { Play, Pause, SkipBack, SkipForward, Repeat, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Play, Pause, Repeat, ZoomIn, ZoomOut, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import type { AudioFile, PlaybackState } from '../types/audio';
 import { formatTime } from '../utils/formatTime';
 
@@ -16,52 +16,38 @@ interface PlaybackHeaderProps {
 }
 
 export const PlaybackHeader = ({
-  audioFile,
-  playbackState,
   onPlayPause,
-  onPrevious,
-  onNext,
+  onToggleSidebar,
   onZoomIn,
   onZoomOut,
   zoomLevel,
   showSidebar,
-  onToggleSidebar,
+  audioFile,
+  playbackState,
 }: PlaybackHeaderProps) => {
   return (
-    <div className="h-20 px-8 flex items-center justify-between z-30 relative"
+    <div className="h-20 flex-shrink-0 px-8 flex items-center justify-between z-30 relative"
       style={{
         backgroundColor: 'rgba(28, 28, 30, 0.8)', // Semi-transparent Apple Dark
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border-subtle)'
       }}
     >
-      {/* Left: Branding & Track Info */}
-      <div className="flex items-center gap-4 w-1/3">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#D4AF37] to-amber-700 flex items-center justify-center shadow-lg">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
-        </div>
-        <div>
-          <h1 className="text-sm font-semibold text-white leading-tight tracking-tight">
-            {audioFile ? audioFile.name : 'No Track Loaded'}
-          </h1>
-          <p className="text-xs text-neutral-400 font-medium">
-            Unlayered Studio
-          </p>
-        </div>
+      {/* Left: Branding */}
+      <div className="flex flex-col justify-center w-1/3 truncate">
+        <h1 className="text-lg font-bold text-white tracking-tight leading-none">
+          Unlayered Studio
+        </h1>
+        {audioFile && (
+          <span className="text-xs text-neutral-400 font-medium truncate opacity-80 mt-0.5">
+            {audioFile.name.replace(/\.[^/.]+$/, "")}
+          </span>
+        )}
       </div>
 
       {/* Center: Playback Controls (Apple Style) */}
       <div className="flex flex-col items-center justify-center gap-1 w-1/3">
         <div className="flex items-center gap-6">
-          <button
-            onClick={onPrevious}
-            className="text-neutral-400 hover:text-white transition-colors"
-            aria-label="Previous track"
-            title="Previous track"
-          >
-            <SkipBack className="w-5 h-5 fill-current" />
-          </button>
-
           <button
             onClick={onPlayPause}
             className="w-10 h-10 rounded-full bg-white flex items-center justify-center hover:scale-105 transition-transform shadow-md"
@@ -73,15 +59,6 @@ export const PlaybackHeader = ({
             ) : (
               <Play className="w-5 h-5 text-black fill-current ml-0.5" />
             )}
-          </button>
-
-          <button
-            onClick={onNext}
-            className="text-neutral-400 hover:text-white transition-colors"
-            aria-label="Next track"
-            title="Next track"
-          >
-            <SkipForward className="w-5 h-5 fill-current" />
           </button>
         </div>
       </div>

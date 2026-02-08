@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type UIEvent } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PlaybackHeader } from './components/PlaybackHeader';
 import { WaveformDisplay } from './components/WaveformDisplay';
 import { StemTrack } from './components/StemTrack';
@@ -12,7 +13,7 @@ import { Toast } from './components/Toast';
 
 import { SongIntro } from './components/SongIntro';
 import { DrumVisualizer } from './components/DrumVisualizer';
-import { LyricsSearchModal } from './components/LyricsSearchModal';
+import { LyricsSearchPage } from './components/LyricsSearchPage';
 import { LyricDetailModal } from './components/LyricDetailModal';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useSeparation } from './hooks/useSeparation';
@@ -22,13 +23,12 @@ import type { AudioFile, Stem, PlaybackState, SongMetadata, TimedLyricAnnotation
 import { mapBackendStemToType } from './types/audio';
 import {
   mockAudioFile,
-  mockAIInsight,
   mockCombinedWaveform,
   mockPeaks,
-  mockSongStructure,
-  generateWaveformData,
 } from './utils/mockData';
+import type { AIInsight } from './types/audio';
 import { resolveLyricsSong, searchLyricsSongs, type LyricsSearchResult } from './services/lyricsApi';
+import { extractStructure } from './utils/structureParser';
 
 // Stem color and label configuration
 const STEM_CONFIG: Record<string, { color: string; label: string; order: number }> = {
@@ -38,6 +38,18 @@ const STEM_CONFIG: Record<string, { color: string; label: string; order: number 
   bass: { color: '#D4AF37', label: 'Bass', order: 4 },
   other: { color: '#D4AF37', label: 'Other', order: 5 },
   piano: { color: '#D4AF37', label: 'Piano', order: 6 },
+};
+
+const pageVariants = {
+  initial: { opacity: 0, y: 20, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -20, scale: 1.02, transition: { duration: 0.2 } }
+};
+
+const pageTransition = {
+  type: "spring",
+  stiffness: 260,
+  damping: 20
 };
 
 function App() {
@@ -59,9 +71,9 @@ function App() {
   const [toastMessage, setToastMessage] = useState<{ message: string; variant: 'error' | 'success' | 'info' } | null>(null);
 
   // Separation hook for backend integration
+  // Separation hook for backend integration
   const {
     stage: separationStage,
-    progress: separationProgress,
     error: separationError,
     result: separationResult,
     capabilities,
@@ -85,7 +97,7 @@ function App() {
   const [songMeta, setSongMeta] = useState<SongMetadata | null>(null);
   const [timedLyrics, setTimedLyrics] = useState<TimedLyricAnnotation[]>([]);
   const [syncedLyrics, setSyncedLyrics] = useState<NonNullable<Stem['lyrics']>>([]);
-  const [lyricsSearchOpen, setLyricsSearchOpen] = useState(false);
+  const [showLyricsSearch, setShowLyricsSearch] = useState(false);
   const [lyricsSearchQuery, setLyricsSearchQuery] = useState('');
   const [lyricsSearchResults, setLyricsSearchResults] = useState<LyricsSearchResult[]>([]);
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -101,6 +113,35 @@ function App() {
   const handleZoomIn = () => setZoomLevel(prev => Math.min(10, prev * 1.5));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(1, prev / 1.5));
   const waveformsReady = stemsLoaded && playbackState.duration > 0;
+
+  // Calculate BPM from drum peaks and create AI insight
+  const aiInsight = useMemo((): AIInsight | null => {
+    // Calculate BPM if we have enough drum peaks
+    let bpm: number | undefined;
+    if (drumPeaks.length >= 4) {
+      const peakTimes = drumPeaks.map(p => p.time).sort((a, b) => a - b);
+      const intervals: number[] = [];
+      for (let i = 1; i < peakTimes.length; i++) {
+        const interval = peakTimes[i] - peakTimes[i - 1];
+        if (interval >= 0.2 && interval <= 2) {
+          intervals.push(interval);
+        }
+      }
+      if (intervals.length > 0) {
+        intervals.sort((a, b) => a - b);
+        const medianInterval = intervals[Math.floor(intervals.length / 2)];
+        bpm = Math.round(60 / medianInterval);
+      }
+    }
+
+    // Use bio from Genius as summary, or generate a simple one
+    const summary = songMeta?.bio || '';
+
+    // Only return insight if we have at least something to show
+    if (!summary && !bpm) return null;
+
+    return { summary, tempo: bpm };
+  }, [drumPeaks, songMeta?.bio]);
 
   // Initialize audio engine
   const {
@@ -472,11 +513,7 @@ function App() {
     setPendingQuality(null);
   }, [pendingFile, pendingQuality, startSeparation]);
 
-  const handleLyricsModalClose = useCallback(() => {
-    setLyricsSearchOpen(false);
-    setLyricsSelectionComplete(true);
-    void startPendingSeparation();
-  }, [startPendingSeparation]);
+
 
   const handleLyricOverlayClick = useCallback(() => {
     setIsLyricModalOpen(true);
@@ -514,6 +551,7 @@ function App() {
     // Reset the job tracking ref so stems will be loaded fresh
     lastLoadedJobIdRef.current = null;
 
+    // Reset audio state
     resetAudioStems();
     setShowIntro(false);
     setAudioFile(null);
@@ -524,9 +562,10 @@ function App() {
       ...prev,
       isPlaying: false,
       currentTime: 0,
-      duration: mockAudioFile.duration,
+      duration: 0,
     }));
 
+    // Reset lyrics state
     setTimedLyrics([]);
     setSyncedLyrics([]);
     setSongMeta(null);
@@ -534,12 +573,15 @@ function App() {
     setLyricsSearchQuery(baseName);
     setLyricsSearchResults([]);
     setLyricsError(null);
-    setLyricsSearchOpen(true);
+
+    // Set pending file info (DO NOT start separation yet)
     setPendingFile(file);
     setPendingQuality(quality);
     setSelectedTrackName(baseName || file.name);
 
-    resetSeparation();
+    // Show lyrics search page (this is the next step in the flow)
+    setShowLyricsSearch(true);
+    setLyricsSearchQuery(baseName);
   };
 
   const performLyricsSearch = useCallback(async (query: string) => {
@@ -575,7 +617,28 @@ function App() {
 
       setSyncedLyrics(syncedLyricsLines);
 
-      setLyricsSearchOpen(false);
+      console.log('[App] Genius Lyrics Payload (first 500 chars):', payload.lyrics?.substring(0, 500));
+      console.log('[App] Timed Lyrics Count:', payload.timed_lyrics.length);
+
+      // Extract structure from lyrics headers if available
+      const structure = extractStructure(payload.lyrics, payload.timed_lyrics, playbackState.duration || 180);
+
+      // Update audio file with structure
+      if (structure.length > 0) {
+        console.log('[App] Extracted structure:', structure);
+        setAudioFile(prev => prev ? { ...prev, structure } : null);
+
+        // Also update playback state duration just in case it wasn't set
+        if (playbackState.duration === 0) {
+          // estimate from last lyric + 10s if duration unknown
+          const lastLyric = syncedLyricsLines[syncedLyricsLines.length - 1];
+          if (lastLyric) {
+            setPlaybackState(prev => ({ ...prev, duration: lastLyric.endTime + 10 }));
+          }
+        }
+      }
+
+      setShowLyricsSearch(false);
       setLyricsSelectionComplete(true);
       await startPendingSeparation();
     } catch (err) {
@@ -584,7 +647,7 @@ function App() {
     } finally {
       setLyricsLoading(false);
     }
-  }, [startPendingSeparation]);
+  }, [startPendingSeparation, playbackState.duration]);
 
   const handleLoadJob = useCallback(async (jobId: string, filename: string) => {
     // 1. Reset state (similar to handleFileSelect)
@@ -616,7 +679,7 @@ function App() {
 
     // 2. Set metadata and open lyrics search (Genius API)
     setSelectedTrackName(baseName);
-    setLyricsSearchOpen(true);
+    setShowLyricsSearch(true);
 
     // Auto-trigger search
     performLyricsSearch(baseName);
@@ -795,295 +858,318 @@ function App() {
   }, [playbackState.isPlaying]);
 
   useEffect(() => {
-    if (lyricsSearchOpen && !hasAutoSearchedLyrics.current && lyricsSearchQuery.trim()) {
+    if (showLyricsSearch && !hasAutoSearchedLyrics.current && lyricsSearchQuery.trim()) {
       hasAutoSearchedLyrics.current = true;
       performLyricsSearch(lyricsSearchQuery);
     }
-    if (!lyricsSearchOpen) {
+    if (!showLyricsSearch) {
       hasAutoSearchedLyrics.current = false;
     }
-  }, [lyricsSearchOpen, lyricsSearchQuery, performLyricsSearch]);
+  }, [showLyricsSearch, lyricsSearchQuery, performLyricsSearch]);
 
   // Show loading screen during separation processing
   const isProcessing = separationStage === 'uploading' || separationStage === 'queued' || separationStage === 'processing';
 
-  if (isProcessing) {
-    const statusMessages: Record<string, string> = {
-      uploading: 'Uploading audio file...',
-      queued: 'Queued for processing...',
-      processing: 'Separating audio stems...',
-    };
+  const statusMessages: Record<string, string> = {
+    uploading: 'Uploading audio file...',
+    queued: 'Queued for processing...',
+    processing: 'Separating audio stems...',
+  };
 
-    return (
-      <>
-        <LoadingScreen
-          artist={songMeta?.artists?.[0] || selectedTrackName || 'Processing'}
-          trackName={songMeta?.title || selectedTrackName || 'Audio Separation'}
-          albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
-          artistImage={songMeta?.artist_image_url || undefined}
-          status={statusMessages[separationStage] || 'Processing...'}
-        />
-        {toastMessage && (
-          <Toast
-            message={toastMessage.message}
-            variant={toastMessage.variant}
-            onClose={() => setToastMessage(null)}
-          />
-        )}
-      </>
-    );
-  }
-
-  // If no audio file, show upload screen
-  if (!audioFile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="relative max-w-4xl w-full px-8 flex flex-col md:flex-row items-center gap-12">
-          {/* Info + Upload */}
-          <div className="flex-1 text-center md:text-left space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-sm font-medium text-yellow-500/80 tracking-widest uppercase">
-                Unlayered Studio
-              </h2>
-              <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter">
-                A new way to listen
-              </h1>
-              <p className="text-lg text-neutral-400 font-light">
-                Separate stems, explore lyrics, and remix in real time.
-              </p>
-            </div>
-
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              onLoadJob={handleLoadJob}
-              capabilities={capabilities}
-              recommendedQuality={recommendedQuality}
-              disabled={isProcessing}
-            />
-          </div>
-        </div>
-        <LyricsSearchModal
-          isOpen={lyricsSearchOpen}
-          query={lyricsSearchQuery}
-          onQueryChange={setLyricsSearchQuery}
-          onSearch={() => performLyricsSearch(lyricsSearchQuery)}
-          results={lyricsSearchResults}
-          onSelect={handleSelectLyricsSong}
-          onClose={handleLyricsModalClose}
-          isLoading={lyricsLoading}
-          error={lyricsError}
-        />
-        {toastMessage && (
-          <Toast
-            message={toastMessage.message}
-            variant={toastMessage.variant}
-            onClose={() => setToastMessage(null)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // Show Intro Screen if active
-  if (showIntro) {
-    return (
-      <>
-        <SongIntro
-          audioFile={audioFile}
-          onStart={() => setShowIntro(false)}
-          albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
-          artistImageUrl={songMeta?.artist_image_url}
-          artistName={songMeta?.artists?.[0] || audioFile.artist}
-          isReady={lyricsSelectionComplete}
-          statusText={lyricsSelectionComplete ? 'Ready to Mix' : 'Select the track to load lyrics'}
-        />
-        <LyricsSearchModal
-          isOpen={lyricsSearchOpen}
-          query={lyricsSearchQuery}
-          onQueryChange={setLyricsSearchQuery}
-          onSearch={() => performLyricsSearch(lyricsSearchQuery)}
-          results={lyricsSearchResults}
-          onSelect={handleSelectLyricsSong}
-          onClose={handleLyricsModalClose}
-          isLoading={lyricsLoading}
-          error={lyricsError}
-        />
-      </>
-    );
-  }
+  const showUpload = !audioFile && !showLyricsSearch;
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-white select-none relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        <DrumVisualizer
-          peaks={drumPeaks}
-          currentTime={playbackState.currentTime}
-          isPlaying={playbackState.isPlaying && !!stems.find(s => s.type === 'drums' && !s.isMuted && s.volume > 0)}
-        />
-      </div>
-      <LyricsSearchModal
-        isOpen={lyricsSearchOpen}
-        query={lyricsSearchQuery}
-        onQueryChange={setLyricsSearchQuery}
-        onSearch={() => performLyricsSearch(lyricsSearchQuery)}
-        results={lyricsSearchResults}
-        onSelect={handleSelectLyricsSong}
-        onClose={handleLyricsModalClose}
-        isLoading={lyricsLoading}
-        error={lyricsError}
-      />
-      <LyricDetailModal
-        isOpen={isLyricModalOpen}
-        line={activeLyricLine?.text || ''}
-        prevLine={prevLyricLine?.text}
-        nextLine={nextLyricLine?.text}
-        annotations={activeAnnotations}
-        onClose={() => setIsLyricModalOpen(false)}
-      />
-      {/* Keyboard Shortcuts Modal */}
-      <KeyboardShortcutsModal
-        shortcuts={shortcuts}
-        isOpen={showShortcutsModal}
-        onClose={() => setShowShortcutsModal(false)}
-      />
-
-      {/* Toast Notifications */}
-      {toastMessage && (
-        <Toast
-          message={toastMessage.message}
-          variant={toastMessage.variant}
-          onClose={() => setToastMessage(null)}
-        />
-      )}
-
-      {/* Error Display */}
-      {audioError && (
-        <div className="bg-red-900/20 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
-          <p className="text-sm font-medium">Audio Error: {audioError}</p>
-        </div>
-      )}
-
-      {/* Loading Display */}
-      {audioLoading && (
-        <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
-          <p className="text-sm font-medium">Loading audio files...</p>
-        </div>
-      )}
-
-      {/* Header */}
-      <PlaybackHeader
-        audioFile={audioFile}
-        playbackState={playbackState}
-        onPlayPause={handlePlayPause}
-        onPrevious={() => { }}
-        onNext={() => { }}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        zoomLevel={zoomLevel}
-        showSidebar={showSidebar}
-        onToggleSidebar={() => setShowSidebar(!showSidebar)}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden relative z-10">
-        {/* Left: Waveforms - Main "Page" feel */}
-        <div className="flex-1 flex flex-col space-y-6">
-
-          {/* Combined Waveform Card */}
-          <div className="rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded bg-neutral-800 flex items-center justify-center text-neutral-500">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+    <AnimatePresence mode="sync">
+      {isProcessing ? (
+        <motion.div
+          key="loading"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          className="min-h-screen"
+        >
+          <LoadingScreen
+            artist={songMeta?.artists?.[0] || selectedTrackName || 'Processing'}
+            trackName={songMeta?.title || selectedTrackName || 'Audio Separation'}
+            albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+            artistImage={songMeta?.artist_image_url || undefined}
+            status={statusMessages[separationStage] || 'Processing...'}
+          />
+          {toastMessage && (
+            <Toast
+              message={toastMessage.message}
+              variant={toastMessage.variant}
+              onClose={() => setToastMessage(null)}
+            />
+          )}
+        </motion.div>
+      ) : showUpload ? (
+        <motion.div
+          key="upload"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          className="h-screen overflow-y-auto"
+          style={{ backgroundColor: 'var(--bg-primary)' }}
+        >
+          <div className="min-h-screen w-full flex items-center justify-center py-12">
+            <div className="relative max-w-4xl w-full px-8 flex flex-col md:flex-row items-center gap-12">
+              {/* Info + Upload */}
+              <div className="flex-1 text-center md:text-left space-y-6">
+                <div className="space-y-2">
+                  <h2 className="text-sm font-medium text-yellow-500/80 tracking-widest uppercase">
+                    Unlayered Studio
+                  </h2>
+                  <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tighter">
+                    A new way to listen
+                  </h1>
+                  <p className="text-lg text-neutral-400 font-light">
+                    Separate stems, explore lyrics, and remix in real time.
+                  </p>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-white tracking-tight">
-                    Stereo / Master
-                  </h3>
-                  <p className="text-xs text-neutral-500">Original Mix</p>
+
+                <FileUpload
+                  onFileSelect={handleFileSelect}
+                  onLoadJob={handleLoadJob}
+                  capabilities={capabilities}
+                  recommendedQuality={recommendedQuality}
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+            {toastMessage && (
+              <Toast
+                message={toastMessage.message}
+                variant={toastMessage.variant}
+                onClose={() => setToastMessage(null)}
+              />
+            )}
+          </div>
+        </motion.div>
+      ) : showLyricsSearch ? (
+        <motion.div
+          key="search"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          className="min-h-screen"
+        >
+          <LyricsSearchPage
+            query={lyricsSearchQuery}
+            onQueryChange={setLyricsSearchQuery}
+            onSearch={() => performLyricsSearch(lyricsSearchQuery)}
+            results={lyricsSearchResults}
+            onSelect={handleSelectLyricsSong}
+            isLoading={lyricsLoading}
+            error={lyricsError}
+            onBack={() => {
+              // Reset to upload screen
+              setAudioFile(null);
+              setShowLyricsSearch(false);
+            }}
+          />
+        </motion.div>
+      ) : showIntro ? (
+        <motion.div
+          key="intro"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          className="min-h-screen"
+        >
+          <SongIntro
+            audioFile={audioFile}
+            onStart={() => setShowIntro(false)}
+            albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+            artistImageUrl={songMeta?.artist_image_url}
+            artistName={songMeta?.artists?.[0] || audioFile.artist}
+            isReady={lyricsSelectionComplete}
+            statusText={lyricsSelectionComplete ? 'Ready to Mix' : 'Select the track to load lyrics'}
+          />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="studio"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          variants={pageVariants}
+          transition={pageTransition}
+          className="h-screen min-h-[600px] min-w-[900px] flex flex-col font-sans text-white select-none relative overflow-hidden"
+          style={{ backgroundColor: 'var(--bg-primary)' }}
+        >
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+            <DrumVisualizer
+              peaks={drumPeaks}
+              currentTime={playbackState.currentTime}
+              isPlaying={playbackState.isPlaying && !!stems.find(s => s.type === 'drums' && !s.isMuted && s.volume > 0)}
+            />
+          </div>
+          <LyricDetailModal
+            isOpen={isLyricModalOpen}
+            line={activeLyricLine?.text || ''}
+            prevLine={prevLyricLine?.text}
+            nextLine={nextLyricLine?.text}
+            annotations={activeAnnotations}
+            onClose={() => setIsLyricModalOpen(false)}
+          />
+          {/* Keyboard Shortcuts Modal */}
+          <KeyboardShortcutsModal
+            shortcuts={shortcuts}
+            isOpen={showShortcutsModal}
+            onClose={() => setShowShortcutsModal(false)}
+          />
+
+          {/* Toast Notifications */}
+          {toastMessage && (
+            <Toast
+              message={toastMessage.message}
+              variant={toastMessage.variant}
+              onClose={() => setToastMessage(null)}
+            />
+          )}
+
+          {/* Error Display */}
+          {audioError && (
+            <div className="bg-red-900/20 border border-red-900/50 text-red-200 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
+              <p className="text-sm font-medium">Audio Error: {audioError}</p>
+            </div>
+          )}
+
+          {/* Loading Display */}
+          {audioLoading && (
+            <div className="bg-white/5 border border-white/10 text-neutral-300 px-4 py-3 mx-4 mt-4 rounded-lg backdrop-blur-md">
+              <p className="text-sm font-medium">Loading audio files...</p>
+            </div>
+          )}
+
+          {/* Header */}
+          <PlaybackHeader
+            audioFile={audioFile}
+            playbackState={playbackState}
+            onPlayPause={handlePlayPause}
+            onPrevious={() => { }}
+            onNext={() => { }}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            zoomLevel={zoomLevel}
+            showSidebar={showSidebar}
+            onToggleSidebar={() => setShowSidebar(!showSidebar)}
+          />
+
+          {/* Main Content */}
+          <div className="flex-1 flex gap-6 px-8 py-6 overflow-hidden relative z-10 min-h-0">
+            {/* Left: Waveforms - Main "Page" feel */}
+            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+
+              {/* Combined Waveform Card */}
+              <div className="rounded-xl overflow-hidden shadow-sm flex-shrink-0 mb-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded bg-neutral-800 flex items-center justify-center text-neutral-500">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white tracking-tight">
+                        Stereo / Master
+                      </h3>
+                      <p className="text-xs text-neutral-500">Original Mix</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-2">
+                  {waveformsReady ? (
+                    <WaveformDisplay
+                      waveformData={combinedWaveform}
+                      currentTime={playbackState.currentTime}
+                      duration={playbackState.duration}
+                      peaks={mockPeaks}
+                      color="#D4AF37"
+                      label=""
+                      onSeek={handleSeek}
+                      height={120}
+                      isCombined
+                      sections={audioFile?.structure}
+                      zoom={zoomLevel}
+                      onScroll={handleGlobalScroll}
+                      onInteract={handleUserInteract}
+                      setScrollRef={registerScrollRef}
+                    />
+                  ) : (
+                    <div className="h-[120px] flex items-center justify-center text-xs text-neutral-500">
+                      Loading waveform...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Individual Stems List */}
+              <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                <h3 className="text-lg font-bold px-1 flex-shrink-0" style={{ color: 'var(--text-primary)' }}>Stems</h3>
+                <div className="flex-1 min-h-0 overflow-y-auto rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                  <div className="space-y-px">
+                    {sortedStems.map((stem) => (
+                      <StemTrack
+                        key={stem.id}
+                        stem={stem}
+                        anySolo={stems.some((s) => s.isSolo)}
+                        currentTime={playbackState.currentTime}
+                        duration={playbackState.duration}
+                        onLyricClick={stem.type === 'vocals' ? handleLyricOverlayClick : undefined}
+                        onToggleMute={handleToggleMute}
+                        onToggleSolo={handleToggleSolo}
+                        onVolumeChange={handleVolumeChange}
+                        onPanChange={handlePanChange}
+                        onSeek={waveformsReady ? handleSeek : undefined}
+                        zoom={zoomLevel}
+                        onScroll={handleGlobalScroll}
+                        onInteract={handleUserInteract}
+                        setScrollRef={registerScrollRef}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Info Note */}
+                <div className="px-2 flex-shrink-0">
+                  <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
+                    Press <kbd className="px-1.5 py-0.5 rounded-md bg-white/10 font-medium text-[10px]">Shift+?</kbd> for keyboard shortcuts
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="py-2">
-              {waveformsReady ? (
-                <WaveformDisplay
-                  waveformData={combinedWaveform}
-                  currentTime={playbackState.currentTime}
-                  duration={playbackState.duration}
-                  peaks={mockPeaks}
-                  color="#D4AF37"
-                  label=""
-                  onSeek={handleSeek}
-                  height={120}
-                  isCombined
-                  sections={mockSongStructure}
-                  zoom={zoomLevel}
-                  onScroll={handleGlobalScroll}
-                  onInteract={handleUserInteract}
-                  setScrollRef={registerScrollRef}
-                />
-              ) : (
-                <div className="h-[120px] flex items-center justify-center text-xs text-neutral-500">
-                  Loading waveform...
+
+            {/* Right: AI Insights (Sidebar) */}
+            {showSidebar && (
+              <div className="w-[340px] flex-shrink-0 transition-all duration-300 min-h-0">
+                <div className="h-full flex flex-col gap-4 min-h-0">
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <AIInsights
+                      insight={aiInsight}
+                      title={songMeta?.title}
+                      artist={songMeta?.artists?.[0] || audioFile.artist}
+                      albumName={songMeta?.album_name}
+                      albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
+                      artistImageUrl={songMeta?.artist_image_url}
+                    />
+                  </div>
+                  <div className="flex-shrink-0 max-h-[200px] overflow-y-auto">
+                    <LyricsAnnotations timedLyrics={timedLyrics} currentTime={playbackState.currentTime} />
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Individual Stems List */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-bold px-1" style={{ color: 'var(--text-primary)' }}>Stems</h3>
-            <div className="space-y-px rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              {sortedStems.map((stem) => (
-                <StemTrack
-                  key={stem.id}
-                  stem={stem}
-                  anySolo={stems.some((s) => s.isSolo)}
-                  currentTime={playbackState.currentTime}
-                  duration={playbackState.duration}
-                  onLyricClick={stem.type === 'vocals' ? handleLyricOverlayClick : undefined}
-                  onToggleMute={handleToggleMute}
-                  onToggleSolo={handleToggleSolo}
-                  onVolumeChange={handleVolumeChange}
-                  onPanChange={handlePanChange}
-                  onSeek={waveformsReady ? handleSeek : undefined}
-                  zoom={zoomLevel}
-                  onScroll={handleGlobalScroll}
-                  onInteract={handleUserInteract}
-                  setScrollRef={registerScrollRef}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Info Note */}
-          <div className="px-2 mt-4">
-            <p className="text-xs text-center" style={{ color: 'var(--text-secondary)' }}>
-              Press <kbd className="px-1.5 py-0.5 rounded-md bg-white/10 font-medium text-[10px]">Shift+?</kbd> for keyboard shortcuts
-            </p>
-          </div>
-        </div>
-
-        {/* Right: AI Insights (Sidebar) */}
-        {showSidebar && (
-          <div className="w-[340px] flex-shrink-0 transition-all duration-300">
-            <div className="h-full flex flex-col gap-4">
-              <div className="flex-1 min-h-0">
-                <AIInsights
-                  insight={mockAIInsight}
-                  title={songMeta?.title}
-                  artist={songMeta?.artists?.[0] || audioFile.artist}
-                  albumName={songMeta?.album_name}
-                  albumArtUrl={songMeta?.song_art_image_url || songMeta?.album_thumbnail}
-                  artistImageUrl={songMeta?.artist_image_url}
-                />
               </div>
-              <LyricsAnnotations timedLyrics={timedLyrics} currentTime={playbackState.currentTime} />
-            </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

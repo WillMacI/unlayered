@@ -3,6 +3,17 @@
  * Shows verse/chorus/bridge markers that are clickable to jump to sections
  */
 
+import {
+  Mic2,
+  Music2,
+  GitCommit,
+  Square,
+  Play,
+  Zap,
+  ChevronRight,
+  ArrowRightToLine,
+  ArrowDown
+} from 'lucide-react';
 import type { SongSection } from '../types/audio';
 
 interface StructureMarkersProps {
@@ -23,6 +34,19 @@ const SECTION_COLORS: Record<string, string> = {
   solo: 'bg-white/10 border-white/20',
   'pre-chorus': 'bg-white/5 border-white/10',
   'post-chorus': 'bg-white/5 border-white/10',
+};
+
+// Icon mapping
+const SECTION_ICONS: Record<string, React.ElementType> = {
+  intro: Play,
+  verse: Mic2,
+  chorus: Music2,
+  bridge: GitCommit,
+  outro: Square,
+  drop: ArrowDown,
+  solo: Zap,
+  'pre-chorus': ChevronRight,
+  'post-chorus': ArrowRightToLine,
 };
 
 export const StructureMarkers = ({
@@ -63,13 +87,24 @@ export const StructureMarkers = ({
           >
             {/* Section label pill */}
             <div
-              className={`absolute top-2 left-2 px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all duration-150 ${isActive
-                  ? 'bg-white text-slate-900 scale-105 shadow-pro'
-                  : 'bg-black/70 text-white backdrop-blur-sm'
+              className={`absolute left-2 px-2.5 py-1 rounded-md text-[10px] font-semibold whitespace-nowrap transition-all duration-150 ${isActive
+                ? 'bg-white text-slate-900 scale-105 shadow-pro z-20'
+                : 'bg-black/70 text-white backdrop-blur-sm z-10'
                 } group-hover:scale-105 group-hover:shadow-pro-lg`}
-              style={{ textShadow: isActive ? 'none' : '0 1px 2px rgba(0,0,0,0.8)' }}
+              style={{
+                textShadow: isActive ? 'none' : '0 1px 2px rgba(0,0,0,0.8)',
+                top: `${(index % 3) * 24 + 8}px` // Stagger: 8px, 32px, 56px
+              }}
             >
-              {section.label}
+              <div className="flex items-center gap-1.5">
+                {SECTION_ICONS[section.type] && (
+                  (() => {
+                    const Icon = SECTION_ICONS[section.type];
+                    return <Icon className="w-3 h-3" />;
+                  })()
+                )}
+                {section.label}
+              </div>
             </div>
 
             {/* Vertical divider at start of section */}
