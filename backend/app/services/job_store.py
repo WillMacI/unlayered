@@ -219,6 +219,43 @@ class JobStore:
             logger.error(f"Error loading metadata for job {job_id}: {e}")
             return None
 
+    def load_from_disk(self, root_output_dir: Path) -> int:
+        """
+        Scan the output directory for existing jobs and load them into memory.
+
+        Args:
+            root_output_dir: Root output directory containing job subdirectories
+
+        Returns:
+            Number of jobs loaded
+        """
+        if not root_output_dir.exists():
+            logger.warning(f"Output directory {root_output_dir} does not exist")
+            return 0
+
+        loaded_count = 0
+        logger.info(f"Scanning {root_output_dir} for existing jobs...")
+
+        for job_dir in root_output_dir.iterdir():
+            if not job_dir.is_dir():
+                continue
+            
+            # Simple check via directory name (uuid)
+            job_id = job_dir.name
+            try:
+                # Basic UUID validation (length check is usually enough for directory scan)
+                if len(job_id) != 36: 
+                    continue
+                
+                job = self.load_metadata(job_id, str(job_dir))
+                if job:
+                    loaded_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to load job from {job_dir}: {e}")
+
+        logger.info(f"Loaded {loaded_count} jobs from disk")
+        return loaded_count
+
     def list_jobs(self, status: Optional[JobStatus] = None) -> list[Job]:
         """
         List all jobs, optionally filtered by status.

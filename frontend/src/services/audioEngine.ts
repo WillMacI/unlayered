@@ -21,6 +21,39 @@ export class AudioEngine {
   private pauseTime: number = 0;
   private isPlaying: boolean = false;
   private duration: number = 0;
+  /**
+   * Reset all loaded stems and timing without destroying the AudioContext.
+   */
+  resetStems(): void {
+    // Stop playback first
+    if (this.isPlaying) {
+      this.isPlaying = false;
+    }
+
+    // Stop and disconnect all sources/nodes
+    this.stems.forEach((stem) => {
+      if (stem.source) {
+        try {
+          stem.source.stop();
+          stem.source.disconnect();
+        } catch {
+          // ignore
+        }
+        stem.source = null;
+      }
+      try {
+        stem.gainNode.disconnect();
+        stem.panNode.disconnect();
+      } catch {
+        // ignore
+      }
+    });
+
+    this.stems.clear();
+    this.duration = 0;
+    this.pauseTime = 0;
+    this.startTime = 0;
+  }
 
   /**
    * Initialize the audio context and master gain
@@ -98,6 +131,13 @@ export class AudioEngine {
         volume: 1, // Default volume
         muted: false,
       });
+      console.log(`[AudioEngine] Loaded stem ${stemId}`, {
+        url: audioUrl,
+        duration: audioBuffer.duration,
+        sampleRate: audioBuffer.sampleRate,
+        numberOfChannels: audioBuffer.numberOfChannels,
+        length: audioBuffer.length
+      });
 
       // Update duration (use longest stem)
       if (audioBuffer.duration > this.duration) {
@@ -151,11 +191,18 @@ export class AudioEngine {
       }
     });
 
+    // Schedule all stems to start at the same precise time
+    // A small buffer ensures all sources can be scheduled before playback begins
+    const scheduledStart = this.context.currentTime + 0.01; // 10ms buffer
+
+    console.log(`[AudioEngine] play() - scheduledStart: ${scheduledStart}, offset: ${offset}, context.currentTime: ${this.context.currentTime}`);
+
     // Create and start sources for all stems
     let startedSources = 0;
-    this.stems.forEach((stem) => {
+    this.stems.forEach((stem, stemId) => {
       if (!stem.buffer) return;
       if (offset >= stem.buffer.duration) {
+        console.log(`[AudioEngine] Skipping ${stemId} - offset ${offset} >= duration ${stem.buffer.duration}`);
         return;
       }
 
@@ -166,9 +213,10 @@ export class AudioEngine {
       // Connect to existing gain/pan chain
       source.connect(stem.panNode);
 
-      // Start playback from offset
-      source.start(0, offset);
+      // Start playback at the scheduled time (all stems start together)
+      source.start(scheduledStart, offset);
       startedSources += 1;
+      console.log(`[AudioEngine] Started ${stemId}: when=${scheduledStart.toFixed(4)}, offset=${offset.toFixed(4)}, bufferDuration=${stem.buffer.duration.toFixed(4)}`);
 
       // Handle end of playback
       source.onended = () => {
@@ -186,7 +234,21 @@ export class AudioEngine {
       return;
     }
 
-    this.startTime = this.context.currentTime - offset;
+    // Calculate startTime based on the scheduled start, not current time
+    this.startTime = scheduledStart - offset;
+  }
+
+  /**
+   * Get maximum duration from all loaded buffers directly
+   */
+  getMaxBufferDuration(): number {
+    let max = 0;
+    this.stems.forEach(stem => {
+      if (stem.buffer && stem.buffer.duration > max) {
+        max = stem.buffer.duration;
+      }
+    });
+    return max;
   }
 
   /**
@@ -491,5 +553,85 @@ export class AudioEngine {
     this.duration = 0;
     this.pauseTime = 0;
     this.startTime = 0;
+  }
+
+  /**
+   * Analyze the drum stem to find kick drum peaks
+   * Uses an OfflineAudioContext to run a low-pass filter and extract peaks
+   */
+  async getKickDrumPeaks(stemId: string, threshold: number = 0.3): Promise<{ time: number; intensity: number; channel: 'left' | 'right' | 'center' }[]> {
+    console.log(`[AudioEngine] getKickDrumPeaks called for ${stemId}`);
+    const stem = this.stems.get(stemId);
+    if (!stem || !stem.buffer) {
+      console.warn(`[AudioEngine] Stem ${stemId} not found or has no buffer`);
+      return [];
+    }
+
+    // Create offline context for processing
+    const offlineCtx = new OfflineAudioContext(
+      1, // Mono is enough for kick detection
+      stem.buffer.length,
+      stem.buffer.sampleRate
+    );
+
+    // Create source
+    const source = offlineCtx.createBufferSource();
+    source.buffer = stem.buffer;
+
+    // Create Low-pass filter for Kick (approx < 150Hz)
+    const filter = offlineCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 150;
+    filter.Q.value = 1;
+
+    // Connect
+    source.connect(filter);
+    filter.connect(offlineCtx.destination);
+
+    source.start(0);
+
+    // Render
+    const renderedBuffer = await offlineCtx.startRendering();
+    const data = renderedBuffer.getChannelData(0);
+
+    // Peak detection on filtered data
+    const peaks: { time: number; intensity: number; channel: 'left' | 'right' | 'center' }[] = [];
+    const minSpacing = 0.2; // Kick hits are rarely faster than 200ms (300bpm 8th notes)
+    const minSpacingSamples = minSpacing * renderedBuffer.sampleRate;
+
+    // Find peaks
+    for (let i = 0; i < data.length; i++) {
+      // Simple threshold check + local maximum
+      // Optimization: skip samples if below threshold
+      if (Math.abs(data[i]) < threshold) continue;
+
+      // Check if it's a local maximum in a small window
+      let isMax = true;
+      const checkWindow = 500; // Small window to confirm peak
+      for (let j = Math.max(0, i - checkWindow); j < Math.min(data.length, i + checkWindow); j++) {
+        if (Math.abs(data[j]) > Math.abs(data[i])) {
+          isMax = false;
+          break;
+        }
+      }
+
+      if (isMax) {
+        // Check spacing from last peak
+        const lastPeak = peaks[peaks.length - 1];
+        const time = i / renderedBuffer.sampleRate;
+
+        if (!lastPeak || (time - lastPeak.time > minSpacing)) {
+          peaks.push({
+            time,
+            intensity: Math.min(1, Math.abs(data[i])),
+            channel: 'center' // Kicks are usually centered
+          });
+          // Skip forward to avoid double triggers on the same hit tail
+          i += Math.floor(minSpacingSamples / 2);
+        }
+      }
+    }
+
+    return peaks;
   }
 }

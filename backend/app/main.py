@@ -11,7 +11,15 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle (startup/shutdown)."""
     # Startup: Initialize shared resources
     from app.services.demucs_service import get_executor
+    from app.services.job_store import get_job_store
+    from app.config import settings
+    
     executor = get_executor()
+    
+    # Load existing jobs from disk
+    job_store = get_job_store()
+    job_store.load_from_disk(settings.output_dir)
+    
     yield
     # Shutdown: Clean up resources
     executor.shutdown(wait=True)

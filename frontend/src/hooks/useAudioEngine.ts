@@ -9,6 +9,7 @@ import type { Stem } from '../types/audio';
 
 interface UseAudioEngineReturn {
   loadStems: (stems: Stem[]) => Promise<void>;
+  resetStems: () => void;
   play: () => Promise<void>;
   pause: () => void;
   seek: (time: number) => void;
@@ -18,6 +19,7 @@ interface UseAudioEngineReturn {
   setMasterVolume: (volume: number) => void;
   getWaveformData: (stemId: string, samples?: number) => number[];
   getStereoWaveformData: (stemId: string, samples?: number) => { left: number[], right: number[] };
+  getKickDrumPeaks: (stemId: string) => Promise<{ time: number; intensity: number; channel: 'left' | 'right' | 'center' }[]>;
   currentTime: number;
   duration: number;
   isPlaying: boolean;
@@ -108,9 +110,15 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
 
       await Promise.all(loadPromises);
 
-      // Update duration
-      const loadedDuration = engineRef.current.getDuration();
-      setDuration(loadedDuration);
+      // Update duration - find max duration among stems
+      // getDuration() might return 0 if no stems are technically "active" yet or if race condition
+      let maxDuration = engineRef.current.getDuration();
+
+      if (maxDuration === 0) {
+        // Fallback to direct buffer check
+        maxDuration = engineRef.current.getMaxBufferDuration();
+      }
+      setDuration(maxDuration);
 
       // Apply initial stem settings
       stems.forEach((stem) => {
@@ -133,6 +141,13 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
       console.error('Stem loading error:', err);
       throw err;
     }
+  }, []);
+
+  const resetStems = useCallback(() => {
+    engineRef.current?.resetStems();
+    setDuration(0);
+    setCurrentTime(0);
+    setIsPlaying(false);
   }, []);
 
   /**
@@ -224,8 +239,14 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     []
   );
 
+  const getKickDrumPeaks = useCallback(
+    async (stemId: string) => engineRef.current?.getKickDrumPeaks(stemId) || [],
+    []
+  );
+
   return {
     loadStems,
+    resetStems,
     play,
     pause,
     seek,
@@ -235,6 +256,7 @@ export const useAudioEngine = (): UseAudioEngineReturn => {
     setMasterVolume,
     getWaveformData,
     getStereoWaveformData,
+    getKickDrumPeaks,
     currentTime,
     duration,
     isPlaying,

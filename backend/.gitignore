@@ -43,7 +43,7 @@ env/
 uploads/
 outputs/
 cache/
-models/
+/models/
 
 # Testing
 .pytest_cache/

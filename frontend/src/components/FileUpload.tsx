@@ -1,11 +1,12 @@
-import { Upload, FileAudio, Cpu, Zap } from 'lucide-react';
+import { Upload, FileAudio, Cpu, Zap, History, Clock } from 'lucide-react';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
-import { QUALITY_PRESETS, type SystemCapabilities } from '../services/apiClient';
+import { QUALITY_PRESETS, type SystemCapabilities, getJobHistory, type JobResponse } from '../services/apiClient';
 
 interface FileUploadProps {
   onFileSelect: (file: File, quality: number) => void;
+  onLoadJob?: (jobId: string, filename: string) => void;
   capabilities?: SystemCapabilities | null;
   recommendedQuality?: number;
   disabled?: boolean;
@@ -13,6 +14,7 @@ interface FileUploadProps {
 
 export const FileUpload = ({
   onFileSelect,
+  onLoadJob,
   capabilities,
   recommendedQuality = 2,
   disabled = false,
@@ -21,7 +23,15 @@ export const FileUpload = ({
   const [selectedQuality, setSelectedQuality] = useState(recommendedQuality);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [userHasSelectedQuality, setUserHasSelectedQuality] = useState(false);
+  const [recentJobs, setRecentJobs] = useState<JobResponse[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch history on mount
+  useEffect(() => {
+    getJobHistory()
+      .then(setRecentJobs)
+      .catch(err => console.error('Failed to load history:', err));
+  }, []);
 
   // Sync selectedQuality when recommendedQuality changes (if user hasn't manually selected)
   useEffect(() => {
@@ -174,11 +184,10 @@ export const FileUpload = ({
                       setSelectedQuality(preset.level);
                       setUserHasSelectedQuality(true);
                     }}
-                    className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
-                      isSelected
-                        ? 'border-[#D4AF37] bg-[#D4AF37]/10'
-                        : 'border-neutral-700 hover:border-neutral-600 bg-white/5'
-                    }`}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${isSelected
+                      ? 'border-[#D4AF37] bg-[#D4AF37]/10'
+                      : 'border-neutral-700 hover:border-neutral-600 bg-white/5'
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
@@ -192,11 +201,10 @@ export const FileUpload = ({
                         )}
                       </div>
                       <div
-                        className={`w-4 h-4 rounded-full border-2 ${
-                          isSelected
-                            ? 'border-[#D4AF37] bg-[#D4AF37]'
-                            : 'border-neutral-500'
-                        }`}
+                        className={`w-4 h-4 rounded-full border-2 ${isSelected
+                          ? 'border-[#D4AF37] bg-[#D4AF37]'
+                          : 'border-neutral-500'
+                          }`}
                       />
                     </div>
                     <p className="text-sm text-neutral-400 mt-1">
@@ -256,20 +264,18 @@ export const FileUpload = ({
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-8">
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border border-white/10 rounded-2xl p-8 transition-all ${
-          disabled
-            ? 'cursor-not-allowed opacity-50'
-            : 'cursor-pointer'
-        } ${
-          isDragging
+        className={`border border-white/10 rounded-2xl p-8 transition-all ${disabled
+          ? 'cursor-not-allowed opacity-50'
+          : 'cursor-pointer'
+          } ${isDragging
             ? 'border-[#D4AF37] bg-white/10'
             : 'bg-white/5 hover:bg-white/10'
-        }`}
+          }`}
       >
         <div className="flex items-center gap-5">
           <div className="p-4 rounded-full bg-white/10">
@@ -311,6 +317,44 @@ export const FileUpload = ({
           </button>
         </div>
       </div>
+
+      {/* Recent Projects */}
+      {recentJobs.length > 0 && onLoadJob && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-neutral-400">
+            <History className="w-4 h-4" />
+            <h3 className="text-sm font-medium uppercase tracking-wider">Recent Projects</h3>
+          </div>
+          <div className="grid gap-2">
+            {recentJobs.slice(0, 5).map((job) => (
+              <button
+                key={job.job_id}
+                onClick={() => onLoadJob(job.job_id, job.filename)}
+                disabled={disabled}
+                className="w-full flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 transition-all group text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded bg-neutral-800 flex items-center justify-center text-neutral-500 group-hover:text-[#D4AF37] transition-colors">
+                    <FileAudio className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-white group-hover:text-[#D4AF37] transition-colors truncate max-w-[300px]">
+                      {job.filename}
+                    </div>
+                    <div className="text-xs text-neutral-500 flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${job.status === 'completed' ? 'bg-green-500' : 'bg-neutral-500'}`} />
+                      {job.status}
+                    </div>
+                  </div>
+                </div>
+                {/* <div className="text-xs text-neutral-600 group-hover:text-neutral-400 transition-colors">
+                  {new Date(job.created_at || '').toLocaleDateString()}
+                </div> */}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

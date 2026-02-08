@@ -57,7 +57,7 @@ export const LyricsAnnotations = ({ timedLyrics, currentTime }: LyricsAnnotation
   const activeKey = `${targetIndex}-${activeLine?.line ?? ''}`;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4 h-[280px] flex flex-col gap-3">
+    <div className="rounded-xl border border-white/10 bg-neutral-900/80 backdrop-blur-md p-4 h-[280px] flex flex-col gap-3 shadow-xl relative z-20">
       <div>
         <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Lyrics Annotations</h4>
         <AnimatePresence mode="wait">
