@@ -28,6 +28,7 @@ export interface SeparationResult {
   job_id: string;
   status: JobStatus;
   tracks: SeparatedTracks;
+  notes?: SeparatedNotes;
   duration?: number;
 }
 
@@ -56,4 +57,16 @@ export interface AudioMetadata {
   album?: string;
   duration: number;
   sampleRate: number;
+}
+
+export interface NoteEvent {
+  start_time: number;
+  end_time: number;
+  pitch: number;
+  velocity: number;
+  confidence: number;
+}
+
+export interface SeparatedNotes {
+  [stemName: string]: NoteEvent[];
 }

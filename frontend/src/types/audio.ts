@@ -42,6 +42,15 @@ export interface Stem {
   audioUrl?: string;        // URL to audio file
   audioBuffer?: ArrayBuffer; // Loaded audio data
   lyrics?: { text: string; startTime: number; endTime: number }[]; // Synced lyrics
+  notes?: NoteEvent[]; // Detected notes
+}
+
+export interface NoteEvent {
+  start_time: number;
+  end_time: number;
+  pitch: number;
+  velocity: number;
+  confidence: number;
 }
 
 export interface PlaybackState {

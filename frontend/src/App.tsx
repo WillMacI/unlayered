@@ -184,6 +184,7 @@ function App() {
             order: config.order,
             audioUrl: getStemDownloadUrl(separationResult.job_id, stemName),
             lyrics: stemType === 'vocals' && syncedLyrics.length > 0 ? syncedLyrics : undefined,
+            notes: separationResult.notes ? separationResult.notes[stemName] : undefined,
           };
         });
 

@@ -1,9 +1,10 @@
 import { useState, type UIEvent } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Music, Activity } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
 import type { WaveformDisplayProps } from './WaveformDisplay';
 import { LyricsOverlay } from './LyricsOverlay';
+import NoteVisualizer from './NoteVisualizer';
 
 interface StemTrackProps {
   stem: Stem;
@@ -60,6 +61,7 @@ export const StemTrack = ({
 }: StemTrackProps) => {
   /* Tooltip logic removed for cleaner UI */
   const [viewMode, setViewMode] = useState<'mono' | 'stereo'>('mono');
+  const [visualMode, setVisualMode] = useState<'wave' | 'midi'>('wave');
   const effectiveMuted = stem.isMuted || (anySolo && !stem.isSolo);
 
   const formatPan = (value: number) => {
@@ -102,41 +104,80 @@ export const StemTrack = ({
             >
               S
             </button>
-            <button
-              onClick={() => setViewMode(prev => prev === 'mono' ? 'stereo' : 'mono')}
-              className={`w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${viewMode === 'stereo' ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
-              title="Toggle Mono/Stereo View"
-              aria-label={viewMode === 'stereo' ? 'Switch to mono view' : 'Switch to stereo view'}
-            >
-              {viewMode === 'stereo' ? 'LR' : 'M'}
-            </button>
+
+            {/* View Switches */}
+            <div className="flex gap-1">
+              {visualMode === 'wave' && (
+                <button
+                  onClick={() => setViewMode(prev => prev === 'mono' ? 'stereo' : 'mono')}
+                  className={`w-6 h-6 rounded flex items-center justify-center text-[9px] font-bold transition-colors ${viewMode === 'stereo' ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                  title="Toggle Mono/Stereo View"
+                  aria-label={viewMode === 'stereo' ? 'Switch to mono view' : 'Switch to stereo view'}
+                >
+                  {viewMode === 'stereo' ? 'LR' : 'M'}
+                </button>
+              )}
+
+              {stem.notes && (
+                <button
+                  onClick={() => setVisualMode(prev => prev === 'wave' ? 'midi' : 'wave')}
+                  className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${visualMode === 'midi' ? 'bg-[#D4AF37] text-black' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                  title={visualMode === 'midi' ? 'Switch to Waveform' : 'Switch to MIDI'}
+                  aria-label={visualMode === 'midi' ? 'Switch to Waveform' : 'Switch to MIDI'}
+                >
+                  {visualMode === 'midi' ? <Activity className="w-3.5 h-3.5" /> : <Music className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 2. Waveform (Center - Flex Grow) */}
+      {/* 2. Waveform / Visualizer (Center - Flex Grow) */}
       <div className="flex-1 min-w-0 relative h-20 flex items-center">
-        {stem.lyrics && (
-          <LyricsOverlay
-            lyrics={stem.lyrics}
-            currentTime={currentTime}
-            onLineClick={onLyricClick}
-          />
+        {visualMode === 'midi' && stem.notes ? (
+          <div className="absolute inset-0 z-10">
+            <NoteVisualizer
+              notes={stem.notes}
+              currentTime={currentTime}
+              duration={duration}
+              height={80}
+              color={stem.color}
+              className="opacity-100"
+            />
+          </div>
+        ) : (
+          <>
+            {/* Background notes visualizer (optional, keeps existing 'ghost' notes if desired, but user wanted switch. 
+                Use 'midi' mode check to hide render here if we want exclusive. 
+                Let's keep ghost notes ONLY if visualMode is 'wave' AND we want them. 
+                The user asked to switch, so strict switching suggests removing ghost notes in wave view OR keeping them.
+                I will remove ghost notes in 'wave' view to make the toggle distinct and less cluttered, 
+                as the user specifically asked for "switch between".
+             */}
+            {stem.lyrics && (
+              <LyricsOverlay
+                lyrics={stem.lyrics}
+                currentTime={currentTime}
+                onLineClick={onLyricClick}
+              />
+            )}
+            <WaveformDisplay
+              waveformData={getWaveformDataForView(stem.waveformData, viewMode)}
+              currentTime={currentTime}
+              duration={duration}
+              peaks={[]}
+              color={stem.color}
+              label=""
+              onSeek={onSeek}
+              height={96}
+              onScroll={onScroll}
+              onInteract={onInteract}
+              setScrollRef={setScrollRef}
+              zoom={zoom}
+            />
+          </>
         )}
-        <WaveformDisplay
-          waveformData={getWaveformDataForView(stem.waveformData, viewMode)}
-          currentTime={currentTime}
-          duration={duration}
-          peaks={[]}
-          color={stem.color}
-          label=""
-          onSeek={onSeek}
-          height={96}
-          onScroll={onScroll}
-          onInteract={onInteract}
-          setScrollRef={setScrollRef}
-          zoom={zoom}
-        />
       </div>
 
       {/* 3. Controls (Right) */}

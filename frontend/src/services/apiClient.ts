@@ -1,4 +1,5 @@
 import { getApiUrl } from '../config/api';
+import type { NoteEvent } from '../types/audio';
 
 // Types matching backend schemas
 export type JobStatus = 'queued' | 'processing' | 'completed' | 'failed';
@@ -15,6 +16,7 @@ export interface SeparationResult {
   job_id: string;
   status: JobStatus;
   tracks: Record<string, string | null>; // stem name -> download URL (null if not available)
+  notes?: Record<string, NoteEvent[]>;
   duration?: number; // processing duration in seconds
 }
 
