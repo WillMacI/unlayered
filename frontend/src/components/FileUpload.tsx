@@ -1,4 +1,4 @@
-import { Upload, FileAudio, Cpu, Zap, History, Clock } from 'lucide-react';
+import { Upload, FileAudio, Cpu, Zap, History } from 'lucide-react';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readFile } from '@tauri-apps/plugin-fs';
@@ -253,7 +253,10 @@ export const FileUpload = ({
             </button>
             <button
               onClick={handleStartSeparation}
-              className="px-6 py-3 bg-[#D4AF37] hover:bg-[#b5952f] text-black rounded-lg font-medium transition-colors"
+              disabled={disabled}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors ${disabled
+                ? 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                : 'bg-[#D4AF37] hover:bg-[#b5952f] text-black'}`}
             >
               Start Separation
             </button>

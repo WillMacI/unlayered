@@ -1,4 +1,4 @@
-import { Sparkles, Music, Gauge, Key, Copy } from 'lucide-react';
+import { Sparkles, Gauge, Copy } from 'lucide-react';
 import type { AIInsight } from '../types/audio';
 
 interface AIInsightsProps {
@@ -14,18 +14,10 @@ export const AIInsights = ({ insight, title, artist, albumName, albumArtUrl, art
   const handleCopy = async () => {
     if (!insight) return;
 
-    const sections: string[] = [insight.summary];
-    const metadataLines: string[] = [];
-
-    if (insight.genre) metadataLines.push(`Genre: ${insight.genre}`);
-    if (insight.mood) metadataLines.push(`Mood: ${insight.mood}`);
+    const sections: string[] = [];
+    if (insight.summary) sections.push(insight.summary);
     if (insight.tempo !== undefined && insight.tempo !== null) {
-      metadataLines.push(`Tempo: ${insight.tempo} BPM`);
-    }
-    if (insight.key) metadataLines.push(`Key: ${insight.key}`);
-
-    if (metadataLines.length > 0) {
-      sections.push(metadataLines.join('\n'));
+      sections.push(`Tempo: ${insight.tempo} BPM`);
     }
 
     const text = sections.join('\n\n');
@@ -103,38 +95,19 @@ export const AIInsights = ({ insight, title, artist, albumName, albumArtUrl, art
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Summary Section */}
-        <div>
-          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">Analysis</h4>
-          <p className="text-sm leading-relaxed text-neutral-300">
-            {insight.summary}
-          </p>
-        </div>
+        {insight.summary && (
+          <div>
+            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1.5">About</h4>
+            <p className="text-sm leading-relaxed text-neutral-300">
+              {insight.summary}
+            </p>
+          </div>
+        )}
 
-        <div className="h-px w-full bg-white/5" />
-
-        {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          {insight.genre && (
-            <div className="p-3 rounded-lg bg-white/5 space-y-1">
-              <div className="flex items-center gap-2 text-neutral-400">
-                <Music className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-medium uppercase">Genre</span>
-              </div>
-              <p className="text-sm font-medium text-white">{insight.genre}</p>
-            </div>
-          )}
-
-          {insight.mood && (
-            <div className="p-3 rounded-lg bg-white/5 space-y-1">
-              <div className="flex items-center gap-2 text-neutral-400">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-medium uppercase">Mood</span>
-              </div>
-              <p className="text-sm font-medium text-white">{insight.mood}</p>
-            </div>
-          )}
-
-          {insight.tempo !== undefined && insight.tempo !== null && (
+        {/* Tempo */}
+        {insight.tempo !== undefined && insight.tempo !== null && (
+          <>
+            <div className="h-px w-full bg-white/5" />
             <div className="p-3 rounded-lg bg-white/5 space-y-1">
               <div className="flex items-center gap-2 text-neutral-400">
                 <Gauge className="w-3.5 h-3.5" />
@@ -142,18 +115,8 @@ export const AIInsights = ({ insight, title, artist, albumName, albumArtUrl, art
               </div>
               <p className="text-sm font-medium text-white">{insight.tempo} <span className="text-[10px] text-neutral-500">BPM</span></p>
             </div>
-          )}
-
-          {insight.key && (
-            <div className="p-3 rounded-lg bg-white/5 space-y-1">
-              <div className="flex items-center gap-2 text-neutral-400">
-                <Key className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-medium uppercase">Key</span>
-              </div>
-              <p className="text-sm font-medium text-white">{insight.key}</p>
-            </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

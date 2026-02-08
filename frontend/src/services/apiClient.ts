@@ -43,6 +43,50 @@ export const QUALITY_PRESETS: QualityPreset[] = [
   { level: 5, label: 'Maximum', description: 'Best quality, longest processing time' },
 ];
 
+const ALLOWED_AUDIO_TYPES = new Set([
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/flac',
+  'audio/x-flac',
+  'audio/ogg',
+  'audio/aac',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+  'video/mp4',
+]);
+
+const EXTENSION_TO_MIME: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+  ogg: 'audio/ogg',
+  aac: 'audio/aac',
+  m4a: 'audio/mp4',
+  mp4: 'video/mp4',
+  m4b: 'audio/mp4',
+};
+
+function inferMimeTypeFromName(filename: string): string | null {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  if (!ext) return null;
+  return EXTENSION_TO_MIME[ext] || null;
+}
+
+async function normalizeAudioFile(file: File): Promise<File> {
+  if (ALLOWED_AUDIO_TYPES.has(file.type)) return file;
+
+  const inferred = inferMimeTypeFromName(file.name);
+  if (!inferred || inferred === file.type) return file;
+
+  return new File([file], file.name, {
+    type: inferred,
+    lastModified: file.lastModified,
+  });
+}
+
 // API Functions with AbortSignal support
 export async function fetchCapabilities(signal?: AbortSignal): Promise<SystemCapabilities> {
   const response = await fetch(getApiUrl('capabilities'), { signal });
@@ -54,7 +98,8 @@ export async function fetchCapabilities(signal?: AbortSignal): Promise<SystemCap
 
 export async function uploadFile(file: File, quality: number, signal?: AbortSignal): Promise<JobResponse> {
   const formData = new FormData();
-  formData.append('file', file);
+  const normalizedFile = await normalizeAudioFile(file);
+  formData.append('file', normalizedFile);
   formData.append('quality', quality.toString());
 
   const response = await fetch(getApiUrl('upload'), {

@@ -106,13 +106,23 @@ def resolve_song(song_id: int) -> Dict[str, Any]:
 
     # Lyrics via lyricsgenius (scrapes Genius page)
     genius = lyricsgenius.Genius(settings.genius_token)
-    genius.remove_section_headers = True
+    genius.remove_section_headers = False
+    
+    # Set User-Agent to avoid 403 Forbidden
+    genius._session.headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+
     lyrics_text: Optional[str] = None
     try:
         song_url = song.get("url")
+        logger.info(f"Fetching lyrics from Genius URL: {song_url}")
         if song_url:
-            lyrics_text = genius.lyrics(song_url)
-    except Exception:
+            # Must use keyword argument for song_url to avoid it being interpreted as song_id
+            lyrics_text = genius.lyrics(song_url=song_url)
+            logger.info(f"Fetched lyrics length: {len(lyrics_text) if lyrics_text else 'None'}")
+            if lyrics_text:
+                logger.info(f"First 100 chars: {lyrics_text[:100]}")
+    except Exception as e:
+        logger.error(f"Failed to fetch lyrics from Genius: {e}")
         lyrics_text = None
 
     mapped_song["lyrics"] = lyrics_text

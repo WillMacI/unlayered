@@ -1,5 +1,5 @@
 import { useState, type UIEvent } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Mic2, Music2, Guitar, Drum } from 'lucide-react';
 import type { Stem } from '../types/audio';
 import { WaveformDisplay } from './WaveformDisplay';
 import type { WaveformDisplayProps } from './WaveformDisplay';
@@ -16,12 +16,21 @@ interface StemTrackProps {
   onVolumeChange: (stemId: string, volume: number) => void;
   onPanChange: (stemId: string, pan: number) => void;
 
-  onSeek: (time: number) => void;
+  onSeek?: (time: number) => void;
   zoom?: number;
   onScroll?: (e: UIEvent<HTMLDivElement>) => void;
   onInteract?: () => void;
   setScrollRef?: (ref: HTMLDivElement | null) => void;
 }
+
+const getStemIcon = (label: string) => {
+  const l = label.toLowerCase();
+  if (l.includes('vocal')) return Mic2;
+  if (l.includes('drum')) return Drum;
+  if (l.includes('bass')) return Guitar; // Using guitar for bass as closest approx
+  if (l.includes('other')) return Music2;
+  return Music2;
+};
 
 const getWaveformDataForView = (
   data: WaveformDisplayProps['waveformData'],
@@ -81,7 +90,10 @@ export const StemTrack = ({
       {/* 1. Track Info (Left) */}
       <div className="flex items-center gap-4 w-[180px] flex-shrink-0">
         <div className="w-10 h-10 rounded-md bg-neutral-800 flex items-center justify-center shadow-inner">
-          <span className="text-sm font-bold" style={{ color: stem.color }}>{stem.label.charAt(0)}</span>
+          {(() => {
+            const Icon = getStemIcon(stem.label);
+            return <Icon className="w-5 h-5" style={{ color: stem.color }} />;
+          })()}
         </div>
         <div className="flex flex-col">
           <span className="text-base font-medium text-white tracking-tight">{stem.label}</span>
@@ -124,7 +136,7 @@ export const StemTrack = ({
           />
         )}
         <WaveformDisplay
-          waveformData={getWaveformDataForView(stem.waveformData, viewMode)}
+          waveformData={getWaveformDataForView(stem.waveformData || [], viewMode)}
           currentTime={currentTime}
           duration={duration}
           peaks={[]}
